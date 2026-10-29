@@ -29,6 +29,8 @@ test('BCCLI branded runtime keeps upstream tool protocol, bare mode and token is
       assert.ok(body.tools?.length >= 2, 'all coding tools remain enabled')
       assert.ok(body.messages?.[0]?.role === 'system')
       assert.ok(JSON.stringify(body.messages?.[0]).includes('You are BCCLI'), 'model-facing identity must use BCCLI')
+      assert.ok(!JSON.stringify(body.messages?.[0]).includes('You are Qwen Code, an interactive CLI agent developed by Alibaba Group'), 'product identity must not inherit upstream Alibaba ownership')
+      assert.ok(JSON.stringify(body.messages?.[0]).includes('developed by BICO Inovasi Digital for BotConnector'), 'primary identity must credit BCCLI developer')
       received++
       const chunk = (delta, finish_reason) => JSON.stringify({
         id:'mock-brand',object:'chat.completion.chunk',created:1,model:body.model,
