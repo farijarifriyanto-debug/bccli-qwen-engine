@@ -8,18 +8,56 @@ import { GATEWAY } from './gateway.mjs'
 const ALLOWED_PATHS = new Set(['/v1/models', '/v1/chat/completions', '/v1/responses'])
 const MAX_REQUEST_BYTES = 16 * 1024 * 1024
 
-// Qwen Code 0.26.3 emits get_goal without function.parameters. Some BotConnector
-// upstreams (including Agnes and DeepInfra) reject that OpenAI-compatible shape.
-// Supply an empty-object schema ONLY for parameterless function tools; do not
-// remove tools, strip schemas, or mutate tools that already specify parameters.
+// Qwen 0.26.3 produces get_goal without parameters and read_file with
+// optional JSON-schema type unions such as ["integer", "null"]. Strict
+// OpenAI-compatible providers reject both formats while parsing tools.
+// Normalize only the incompatible pieces, preserving all coding tools.
+function normalizeOptionalNullableSchema(schema) {
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return schema
+  let out = schema
+  if (schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)) {
+    const required = new Set(Array.isArray(schema.required) ? schema.required : [])
+    let properties = schema.properties
+    for (const [name, field] of Object.entries(schema.properties)) {
+      if (!field || typeof field !== 'object' || Array.isArray(field)) continue
+      let candidate = field
+      // The optional absence of a field already represents null; dropping
+      // "null" from this one optional JSON-Schema union is safe. Do not rewrite
+      // required nullable fields or multi-type unions (fail closed upstream).
+      if (!required.has(name) && Array.isArray(field.type) && field.type.length === 2
+        && field.type.includes('null')) {
+        const primitive = field.type.find((type) => type !== 'null')
+        if (['string', 'number', 'integer', 'boolean', 'object', 'array'].includes(primitive)) {
+          candidate = { ...field, type: primitive }
+        }
+      }
+      candidate = normalizeOptionalNullableSchema(candidate)
+      if (candidate !== field) {
+        if (properties === schema.properties) properties = { ...properties }
+        properties[name] = candidate
+      }
+    }
+    if (properties !== schema.properties) out = { ...out, properties }
+  }
+  if (schema.items && typeof schema.items === 'object' && !Array.isArray(schema.items)) {
+    const items = normalizeOptionalNullableSchema(schema.items)
+    if (items !== schema.items) out = { ...out, items }
+  }
+  return out
+}
+
 export function normalizeZeroArgFunctionTools(requestBody) {
   if (!requestBody || typeof requestBody !== 'object' || !Array.isArray(requestBody.tools)) return requestBody
   let changed = false
   const tools = requestBody.tools.map((tool) => {
     const fn = tool?.type === 'function' ? tool.function : null
-    if (!fn || typeof fn.name !== 'string' || fn.parameters != null) return tool
+    if (!fn || typeof fn.name !== 'string') return tool
+    const parameters = fn.parameters == null
+      ? { type: 'object', properties: {} }
+      : normalizeOptionalNullableSchema(fn.parameters)
+    if (parameters === fn.parameters) return tool
     changed = true
-    return { ...tool, function: { ...fn, parameters: { type: 'object', properties: {} } } }
+    return { ...tool, function: { ...fn, parameters } }
   })
   return changed ? { ...requestBody, tools } : requestBody
 }
