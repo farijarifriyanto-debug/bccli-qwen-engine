@@ -105,6 +105,33 @@ export function guardUpstreamProviderCommands(text) {
   return result
 }
 
+// Human-facing labels only. Do not rewrite license notices, import names, or
+// file formats such as QWEN.md, which are still used by the upstream engine.
+function renameProductLanguage(text) {
+  const labels = [
+    ['To see changes, Qwen Code must be restarted.', 'To see changes, BCCLI must be restarted.'],
+    ['To apply the trust changes, Qwen Code must be restarted.', 'To apply trust changes, restart BCCLI.'],
+    ["Press 'r' to restart Qwen Code", "Press 'r' to restart BCCLI"],
+    ["Qwen Code won't ask before using allowed tools.", "BCCLI won't ask before using allowed tools."],
+    ["Qwen Code will ask before using these tools.", "BCCLI will ask before using these tools."],
+    ["Qwen Code is not allowed to use denied tools.", "BCCLI is not allowed to use denied tools."],
+    ["Qwen Code will be able to read files in this directory", "BCCLI will be able to read files in this directory"],
+    ["Qwen Code can read files in the workspace", "BCCLI can read files in the workspace"],
+    ['Qwen Code is restarting to apply the trust changes', 'BCCLI is restarting to apply the trust changes'],
+    ['Qwen Code understands your codebase', 'BCCLI helps you understand your codebase'],
+    ['Available Qwen Code CLI tools:', 'Available BCCLI coding tools:'],
+    ['This menu is read-only. To add or modify hooks, edit settings.json directly or ask Qwen Code.', 'This menu is read-only. Changes to hooks require trusted BCCLI configuration.'],
+    ['To re-enable hooks, remove "disableAllHooks" from settings.json or ask Qwen Code.', 'To re-enable hooks, update trusted BCCLI hook configuration.'],
+    ['Generate with Qwen Code (Recommended)', 'Generate with BCCLI'],
+    ['Trusting a folder allows Qwen Code to execute commands it suggests.', 'Trusting a folder allows BCCLI to execute approved commands.'],
+    ['Reinstall Qwen Code or use the npm installation method.', 'Reinstall BCCLI using the official npm package.'],
+    ['Do you want to connect ${ideName??"your editor"} to Qwen Code?', 'Do you want to connect ${ideName??"your editor"} to BCCLI?'],
+  ]
+  let out = text
+  for (const [before, after] of labels) out = out.split(before).join(after)
+  return out
+}
+
 export function patchUiChunk(file, text) {
   if (file === 'chunks/chunk-OYUATJK2.js') {
     const pattern = /var shortAsciiLogo=\x60[\s\S]*?\x60;/
@@ -132,10 +159,11 @@ export function patchUiChunk(file, text) {
       'You can run any shell commands from Qwen Code using ! (e.g. !ls).',
       'Run terminal commands with ! (e.g. !ls), subject to your permissions.',
       'Ink terminal tip')
-    return replaceOnce(result,
+    result = replaceOnce(result,
       'qwen --resume ${sessionId}',
       'BCCLI candidate resume',
       'Ink session-exit command')
+    return renameProductLanguage(result)
   }
   if (file === 'chunks/start-opentui-ui-Q34XCEMN.js') {
     let result = replaceOnce(
@@ -154,16 +182,17 @@ export function patchUiChunk(file, text) {
       'To continue this session, run qwen --resume ${stats.sessionId}',
       'To resume, run the BCCLI candidate resume command from this project folder',
       'OpenTUI project-quit resume command')
-    return replaceOnce(result,
+    result = replaceOnce(result,
       'qwen --resume ${sessionId}',
       'BCCLI candidate resume',
       'OpenTUI transcript resume command')
+    return renameProductLanguage(result)
   }
   if (file === 'chunks/chunk-QUFSNRKR.js') {
-    return replaceOnce(text,
+    return renameProductLanguage(replaceOnce(text,
       'children:["qwen --resume ",stats.sessionId]',
       'children:["BCCLI candidate resume (same project)", ""]',
-      'Ink summary session-resume command')
+      'Ink summary session-resume command'))
   }
   if (file === 'chunks/chunk-OV3EBH6J.js') {
     return replaceOnce(text,
