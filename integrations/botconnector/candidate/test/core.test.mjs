@@ -72,13 +72,25 @@ test('launcher spawns upstream node script directly without shell', async () => 
     queueMicrotask(() => child.emit('exit', 0, null))
     return child
   }
+  let closed = false
+  const proxyFactory = async ({ key }) => {
+    assert.equal(key, 'fake-key')
+    return {
+      token: 'short-lived-session-token',
+      baseUrl: 'http://127.0.0.1:1234/v1',
+      close: async () => { closed = true },
+    }
+  }
   const exit = await launchQwen({
-    key: 'fake-key', model: 'model-1', prompt: 'hello', env: { PATH: 'ok' },
-    entrypoint: 'qwen-entry.js', spawnImpl,
+    key: 'fake-key', model: 'model-1', prompt: 'hello',
+    env: { PATH: 'ok', BOTCONNECTOR_API_KEY: 'fake-key' },
+    entrypoint: 'qwen-entry.js', spawnImpl, proxyFactory,
   })
   assert.equal(exit, 0)
   assert.equal(captured.args[0], 'qwen-entry.js')
   assert.equal(captured.options.shell, false)
-  assert.equal(captured.options.env.OPENAI_BASE_URL, GATEWAY)
-  assert.equal(captured.options.env.OPENAI_API_KEY, 'fake-key')
+  assert.equal(captured.options.env.OPENAI_BASE_URL, 'http://127.0.0.1:1234/v1')
+  assert.equal(captured.options.env.OPENAI_API_KEY, 'short-lived-session-token')
+  assert.equal(captured.options.env.BOTCONNECTOR_API_KEY, undefined)
+  assert.ok(closed, 'loopback proxy must be disposed on child exit')
 })
