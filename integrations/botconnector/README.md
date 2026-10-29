@@ -301,3 +301,41 @@ cd (Join-Path $env:TEMP 'bccli-qwen-tooltest')
 ```
 
 Use a new CLI process; an already-open session is not hot-reloaded.
+
+
+## 2026-10-29 — full settings/diagnostic sweep and in-session BotConnector model picker
+
+**Owner intent:** BCCLI should no longer expose upstream QwenCloud or Alibaba ModelStudio account selection, old `qwen --resume` commands, upstream GitHub/docs links, or Qwen-first settings/diagnostics. Model selection must work *inside the open coding terminal*, without launching another CLI session. Do not misrepresent app identity, vendor routing, or the current AI model.
+
+### In-session /model, verified with real upstream Qwen TUI and fake Gateway
+- `/model` fetches the **currently authenticated** `GET /v1/models` catalog through the fixed, ephemeral `127.0.0.1` BotConnector proxy using the child short-lived local token. No hardcoded upstream providers, no direct vendor secrets, no fallback.
+- Renders a numbered, paginated list in the existing conversation transcript: `/model`, `/model 2`, `/model <exact-id>`, `/model page N`, `/model search WORD`. Numeric selection after a filtered search uses that filtered list (validated by unit tests). **This is a numbered in-terminal picker, not an arrow-key popup**.
+- Uses upstream `Config.setModel(id)` to switch **the actual running model and content generator**. It does not persist a project-owned provider configuration.
+- Windows Node22 PTY E2E: started on `ling-3.0-flash`, opened the catalog, selected `kimi-k2.7-code`, terminal status showed Kimi, and the next real upstream Qwen request went to the fake Gateway with `model=kimi-k2.7-code`, tools intact. Subsequent system context carried `active_model_id=kimi-k2.7-code` and **no stale `active_model_id=ling-3.0-flash`**. The per-request metadata comes from the actual request body in the proxy; the startup append-system-prompt no longer hardcodes a model ID. User-facing AI answers are not forced to identify as BCCLI.
+- The fake Gateway used authorized model IDs but **did not spend real cloud credits**; a production account live model-switch acceptance remains outstanding.
+
+### Product UI surface sweep
+- `/auth`, `/connect`, `/login`: BotConnector-only connection message (existing `bccli login` bc-cloud saved credential or env override), no upstream provider menu.
+- `/model`: authenticated numbered live model picker described above (replaces old instruction to restart with `--model`).
+- `/settings`: safe, **read-only** BotConnector session settings summary (Gateway, current model, auth, permissions) instead of upstream provider/settings editor. `/permissions` and `/theme` remain available for their intended separate functions. The candidate intentionally does not offer arbitrary endpoint/provider mutation.
+- `/status` and `/about`: BCCLI product diagnostics. `/about credits` is an explicit route to truthful upstream engine attribution and Apache-2.0 licensing notices; these are never falsified/removed.
+- `/docs`: product GitHub README, `/bug`: product GitHub Issues, `/update`: BCCLI release info only (upstream npm updater blocked). Both Ink/OpenTUI Help docs URLs point to the product repository; diagnostic/about labels, permission/trust/hook/Help copy, notification headings and error messages use BCCLI.
+- Fixed earlier **critical regression**: a naively bounded `aboutCommand` replacement accidentally removed adjacent commands (`/settings`, `/about`, `/docs`, `/help` became Unknown command). The patch now bounds `aboutCommand` at its own esbuild shim, not at the next unrelated `action`. Added regression assertion that adjacent registrations remain. PTY after fix verified `/settings` summary and `/help` dialog with BCCLI GitHub URL. `/about` and `/docs` replacement logic passes unit coverage, but individual PTY actions were not separately confirmed beyond group-screen checks; do not mark every path fully accepted.
+- Headless tool denial still refuses unsafe edits. Rebranded source patch replaces Qwen-first warning and removes the upstream `qwen -p ... -y` workaround instruction, **without enabling YOLO or relaxing permission policy**.
+
+### Technical boundaries and status
+The underlying installed `@qwen-code/qwen-code@0.26.3` package remains unmodified, preserved with its Apache-2.0 license and attribution. Brand overlays are copied privately into a SHA-256 pinned runtime and fail closed on upstream drift. Old QwenCloud/Alibaba account dialog code is still present **inside the inactive upstream package** for source provenance; it is unreachable through the patched BCCLI `/auth` command. Some internal file format names (`QWEN.md`) and uncommon diagnostics may still mention Qwen, so this audit is **not proof of literally zero upstream strings anywhere in the package**. Never falsify legal attribution to satisfy cosmetic branding.
+
+**Final local test evidence:** `npm run rebuild` **34/34 unit tests PASS**, `node22 --test test-integration/*.test.mjs` **4/4 integration tests PASS**; Windows PTY model switching + dynamic model metadata PASS. Private candidate tarball `@botconnector/bccli-qwen-candidate@0.0.0` = SHA256 `35FA20C7975A8874C9729AAAD6C73535CA9737D90B024CE9355644E990FD83AF`, size 15,487 bytes. Fresh isolated npm install (no global changes) in `%TEMP%\bccli-qwen-ui-sweep-install-20261029` verified new `model-command.mjs`, branding, and launchable private engine. Global legacy BCCLI stays 0.4.17.
+
+**Owner test, Windows PowerShell** (uses saved `bccli login` credential if present; otherwise `BOTCONNECTOR_API_KEY` in shell, no need for a second Qwen login):
+```powershell
+$root = "$env:TEMP\bccli-qwen-poc-20261029"
+$node22 = "$root\node22-runtime\node_modules\node\bin\node.exe"
+$cli = "$env:TEMP\bccli-qwen-ui-sweep-install-20261029\node_modules\@botconnector\bccli-qwen-candidate\cli.mjs"
+cd "$env:TEMP\bccli-qwen-tooltest"
+& $node22 $cli chat
+# In the BCCLI terminal: /model, /model 2, /model search ling, /settings, /about, /docs, /help
+```
+
+**RELEASE HOLD:** no npm publication, no production deployment, no replacement of existing BCCLI, and no PR merge. Still outstanding: product-wide noninteractive command parity, extended settings/diagnostic verification, Node24 shutdown issue, account/plan billing reconciliation, and privacy/retention policy.
