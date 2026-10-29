@@ -2,7 +2,7 @@
   "name": "@botconnector/bccli-qwen-candidate",
   "private": true,
   "version": "0.0.0",
-  "description": "Unreleased BCCLI OpenAI-compatible gateway wrapper for upstream Qwen Code",
+  "description": "BCCLI | BotConnector coding agent — isolated candidate build",
   "type": "module",
   "bin": {
     "bccli-qwen-candidate": "./cli.mjs"
@@ -30,5 +30,14 @@
     "proxy.mjs",
     "gateway.mjs",
     "branding.mjs"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/farijarifriyanto-debug/bccli.git"
+  },
+  "homepage": "https://github.com/farijarifriyanto-debug/bccli#readme",
+  "bugs": {
+    "url": "https://github.com/farijarifriyanto-debug/bccli/issues"
+  },
+  "author": "BICO Inovasi Digital / BotConnector"
 }
