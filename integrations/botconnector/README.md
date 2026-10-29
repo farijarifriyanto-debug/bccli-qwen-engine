@@ -234,3 +234,32 @@ Set-Location (Join-Path $env:TEMP 'bccli-qwen-tooltest')
 ```
 
 **Limitations:** Existing sessions preserve old assistant output and model memory. Start a **new** session (not `resume`) when testing rebrand persona. An upstream update notice or technical diagnostics may still mention Qwen; do not falsely imply that all underlying implementation/attribution strings are removed. The `/update` mechanism remains upstream-controlled and must be disabled or replaced with BotConnector release policy **before public production cutover** to prevent accidentally upgrading to Qwen upstream. The displayed v0.26.3 suffix is the pinned **engine version**, not a BCCLI release. Keep npm production release **HOLD** pending update flow, Node24, account/plan billing, privacy and wider regression testing. No merge or npm publish was done.
+
+
+## 2026-10-29 — v3 correction: AI identity follows the selected model, not BCCLI branding
+
+The owner rejected the previous forced AI introduction *“Halo! Saya adalah BCCLI ... dikembangkan oleh BICO Inovasi Digital ...”*. They want **the actual model's identity**, not a fixed app/company persona. The distinction is:
+
+- BCCLI / BotConnector = the application's terminal UI, Gateway route, auth, model selection, tool and billing integration.
+- Ling 3.0 Flash = the **currently selected** AI model by authenticated Gateway ID `ling-3.0-flash`, not the creator of the BCCLI app.
+- Qwen Code 0.26.3 = attributed open-source **underlying coding-agent runtime**, not the AI being invoked through BotConnector. License and provenance remain available.
+
+**v3 changes:** removed `IDENTITY_INSTRUCTION` and all fixed “You are BCCLI / developed by BICO Inovasi Digital” model persona strings. The immutable private overlay replaces the hardcoded Qwen/Alibaba core-persona line only with the neutral `You are an AI coding assistant, ${role}, ${focus}.` and sets the project-init prompt to a similarly neutral coding-agent instruction. No forced self-introduction is appended. The only supplementary context is dynamic, factual runtime metadata: `active_model_id=<exact selected Gateway model ID>; client_app=BCCLI; gateway=BotConnector`. It is derived from the actual model picker, not hardcoded to Ling; no requirement to say “I am BCCLI” is present. Model responses remain probabilistic and should be checked in owner-run live inference before saying actual answers are validated.
+
+**Branding remains:** the application banner/logo, title, palette (teal/green/amber), bug-report and npm product metadata stay BCCLI; none of these are converted into a model identity. `--bare` security, default approvals, per-session proxy, real-key isolation, model availability validation and native Qwen tools are unchanged.
+
+**Verification on Windows:** `npm run rebuild` **24/24 routine tests PASS**. Node22 real Qwen mock-Gateway tests **4/4 PASS**, including system prompt receiving `active_model_id=ling-3.0-flash`, not receiving “You are BCCLI”, while continuing to stream through the isolated key proxy. A unit test verifies an alternate model `kimi-k2.7-code` supplies its own runtime model ID instead of reusing Ling. Fresh private v3 tarball SHA256 `9478C277356F1B568306F35326897B9E1A467F9B1A67944A8BA166A53B107FBF` installed under `%TEMP%\bccli-neutral-v3-install-20261029`, where the actual copied core bundle contained the neutral role and no forced BCCLI role. Installed legacy global BCCLI remains 0.4.17.
+
+To test v3 yourself with the API key that you explicitly provide only in PowerShell:
+
+```powershell
+$root = "$env:TEMP\bccli-qwen-poc-20261029"
+$node22 = "$root\node22-runtime\node_modules\node\bin\node.exe"
+$cli = "$env:TEMP\bccli-neutral-v3-install-20261029\node_modules\@botconnector\bccli-qwen-candidate\cli.mjs"
+cd "$env:TEMP\bccli-qwen-tooltest"
+& $node22 $cli chat
+```
+
+Start a **new** conversation, not `resume`: older transcripts may preserve the previous forced BCCLI or Alibaba answer. For acceptance, ask `Model AI apa yang aktif, dan apa perbedaan model AI, BCCLI, dan engine-nya?` The expected fact pattern is dynamically selected model ID, app identity, and engine attribution only when relevant—not a fixed “I am BCCLI” script.
+
+**Release stays DRAFT/HOLD.** No npm publish, production deployment, merge, or global BCCLI replacement was performed.
