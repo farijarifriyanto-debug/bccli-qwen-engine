@@ -15,7 +15,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-7L4WTOM2.js': '4d8053c956cc7881b7f87ae2c0e96bf1adc942a37ac37de3d76eaeb9367041fc',
   'chunks/chunk-QUFSNRKR.js': 'f52e1917c7956b02208b39982bbf7b45fb52c294418ebd93f7f2f0677c1aaa2d',
 })
-const BRAND_REVISION = 'bccli-white-label-20261029-v7-settings-diagnostics'
+const BRAND_REVISION = 'bccli-white-label-20261029-v8-visual-sweep'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -126,6 +126,29 @@ function renameProductLanguage(text) {
     ['Trusting a folder allows Qwen Code to execute commands it suggests.', 'Trusting a folder allows BCCLI to execute approved commands.'],
     ['Reinstall Qwen Code or use the npm installation method.', 'Reinstall BCCLI using the official npm package.'],
     ['Do you want to connect ${ideName??"your editor"} to Qwen Code?', 'Do you want to connect ${ideName??"your editor"} to BCCLI?'],
+    ['var DEFAULT_TITLE="Qwen Code"', 'var DEFAULT_TITLE="BCCLI"'],
+    ['var NOTIFICATION_TITLE="Qwen Code"', 'var NOTIFICATION_TITLE="BCCLI"'],
+    ['Qwen Code needs your permission', 'BCCLI needs your permission'],
+    ['Qwen Code is waiting for your input', 'BCCLI is waiting for your input'],
+    ['title:"Qwen Code"', 'title:"BCCLI"'],
+    ['children:"Qwen Code"', 'children:"BCCLI"'],
+    ['Approving lets Qwen Code start it and run its tools.', 'Approving lets BCCLI start it and run its tools.'],
+    ['var DOCS_URL="https://qwenlm.github.io/qwen-code-docs/"', 'var DOCS_URL="https://github.com/farijarifriyanto-debug/bccli#readme"'],
+    ['var HELP_DOCS_URL="https://qwenlm.github.io/qwen-code-docs/"', 'var HELP_DOCS_URL="https://github.com/farijarifriyanto-debug/bccli#readme"'],
+    ['Review messages held from other Qwen Code sessions', 'Review messages held from other BCCLI sessions'],
+    ['Qwen Code will be able to read, edit, and execute files there.', 'BCCLI will be able to read, edit, and execute files there.'],
+    ['Re-run /doctor memory after restarting Qwen Code', 'Re-run /doctor memory after restarting BCCLI'],
+    ['restart Qwen Code to recover memory', 'restart BCCLI to recover memory'],
+    ['Restart Qwen Code first', 'Restart BCCLI first'],
+    ['Right before Qwen Code concludes its response', 'Right before BCCLI concludes its response'],
+    ['Manage Qwen Code hooks', 'Manage BCCLI hooks'],
+    ['run Qwen Code in one of these supported IDEs', 'run BCCLI in one of these supported IDEs'],
+    ['List available Qwen Code tools.', 'List available BCCLI tools.'],
+    ['Qwen Code is unavailable in this WSL session', 'BCCLI is unavailable in this WSL session'],
+    ['<title>Qwen Code Insights</title>', '<title>BCCLI Insights</title>'],
+    ["Set up Qwen Code's status line UI", "Set up BCCLI's status line UI"],
+    ['Start Qwen Code with', 'Start BCCLI with'],
+
   ]
   let out = text
   for (const [before, after] of labels) out = out.split(before).join(after)
@@ -221,10 +244,11 @@ export function patchUiChunk(file, text) {
       'You are an AI coding assistant operating in a terminal.',
       'neutral project initialization prompt')
     result = guardUpstreamProviderCommands(result)
-    return replaceOnce(result,
+    result = replaceOnce(result,
       'get description(){return t("for help on Qwen Code")}',
       'get description(){return t("BCCLI help and keyboard shortcuts")}',
       'Help command description')
+    return renameProductLanguage(result)
   }
   throw Error('Unrecognized BCCLI branding file.')
 }
