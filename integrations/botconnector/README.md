@@ -87,3 +87,19 @@ node .\\cli.mjs run --model "agnes-3.0-flash" "Balas tepat E2E_OK"
 ```
 
 The 4096-token cap is an optional conservative test configuration, **not the identified root-cause fix**. Do not echo API keys or enable full request logging. If the live request still fails, inspect only sanitized upstream errors by request ID before changing compatibility mappings again.
+
+## 2026-10-29 follow-up: second upstream 400 at tools[3]
+
+The owner's next live test after repairing `get_goal` still received HTTP 400. **Read-only production Account API logs** identified the next specific rejection:
+
+```text
+Invalid request body, Failed to parse '.tools[3]'
+```
+
+Tool index 3 is `read_file`. Qwen Code 0.26.3 declares optional `offset`, `limit`, and `pages` fields with JSON Schema `type: ["integer", "null"]` or `type: ["string", "null"]`. Some strict OpenAI-compatible model providers do not accept nullable type arrays in function parameter schema.
+
+The POC proxy now normalizes **only optional** two-type `null` unions into their single non-null primitive, recursively for nested object properties, as well as the existing zero-argument `get_goal` fix. Required nullable fields, unions with more than two members, and other tool definitions remain untouched. Code remains only in the external candidate proxy; upstream Qwen Code and the production gateway are unchanged.
+
+17/17 Windows Node.js tests PASS, including real Qwen Code 0.26.3 sending all six coding tools through a strict fake upstream that rejects missing parameters and type arrays, and a regression test that guarantees no mutation of required nullable fields.
+
+**Owner-controlled live inference has not been retested after this second schema repair**. Do not report the live 400 as fixed until the user verifies it.
