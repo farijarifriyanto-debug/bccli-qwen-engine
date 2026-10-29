@@ -81,7 +81,7 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home } 
   const env = { ...base }
   // Prevent inherited cross-provider auth from becoming another route or key.
   for (const name of [
-    'QWEN_OAUTH', 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_MODEL', 'QWEN_MODEL',
+    'QWEN_OAUTH', 'BOTCONNECTOR_API_KEY', 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_MODEL', 'QWEN_MODEL',
     'ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL', 'GEMINI_API_KEY',
     'GOOGLE_API_KEY', 'OPENROUTER_API_KEY', 'QWENCLOUD_API_KEY',
     'QWENCLOUD_TOKEN_PLAN_API_KEY',
