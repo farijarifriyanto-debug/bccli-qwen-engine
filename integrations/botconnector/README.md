@@ -178,3 +178,35 @@ $node22 = Join-Path $root 'node22-runtime\node_modules\node\bin\node.exe'
 The rebuilt package is under `%TEMP%\bccli-qwen-package-smoke-20261029\node_modules\@botconnector\bccli-qwen-candidate\cli.mjs` for isolated testing. Start it with the *isolated Node22 runtime* to avoid the known Node24 headless shutdown issue. **Restart an already running Qwen terminal** to pick up new launcher code; a rebuild does not hot-reload active CLI processes.
 
 **Production release stays HOLD** until the separate blocked gates pass. Rebuild success alone does not authorize a merge, global install, npm publish, or production deployment.
+
+
+## 2026-10-29 — BCCLI white-label banner with upstream `--bare` preserved
+
+The owner reported that the terminal still displayed the large **QWEN** logo, title `Qwen Code`, and introductory tips despite previous adapter rebuilds. Changing the candidate's package name alone does **not** change upstream Qwen's TUI.
+
+Upstream Qwen Code 0.26.3 supports native `ui.customBannerTitle`, `ui.customBannerSubtitle`, `ui.customAsciiArt`, but a **fake-key Windows PTY test proved these settings are ignored with `--bare`**. Removing `--bare` is unacceptable: earlier adversarial tests showed project configuration can redirect the provider endpoint. Therefore BCCLI retains `--bare` and does **not** fall back to reading untrusted project/user settings for appearance.
+
+**White-label solution:** `candidate/branding.mjs` produces a private, verified copy of the installed upstream Qwen npm engine under the *same node_modules dependency tree* at `node_modules/.cache/bccli-branded-engines/`. It:
+- Requires exact upstream version 0.26.3 and pinned SHA-256 of only three renderer bundles; any upstream bundle drift **fails closed** instead of silently breaking branding.
+- Copies the original runtime package, modifies only the bundled logo and Ink/OpenTUI banner strings plus two startup tip messages, then checks output hashes and installs an immutable marker. No tool, gateway, auth, permissions, or model-routing code is edited.
+- Leaves `node_modules/@qwen-code/qwen-code` **byte-identical** for auditing and updates; its original LICENSE and provenance remain in the copied runtime. First use makes a cached copy of roughly 148 MB, so initial launch may be slower; subsequent launches reuse it after verifying hashes.
+- Sets the upstream-supported `CLI_TITLE` to `BCCLI - <working directory>`, with `--bare` and default approvals unchanged.
+- Uses upstream-supported `--append-system-prompt` to tell the selected model to introduce the product as BCCLI; the prompt explicitly requires truthful disclosure of the underlying Qwen Code engine if asked. This is a model instruction, not a guarantee about every model's free-form phrasing.
+
+**Verified in fake-key Windows PTY:** rendered logo **BCCLI**, panel title `>_ BCCLI | BotConnector (v0.26.3)`, and tip `Use /help to explore BCCLI tools and commands.`; the default `Qwen Code (v...)` title was absent. The v0.26.3 suffix is the **engine version**, not a released BCCLI version. A separate Node22 integration regression verified patched engine startup, gateway key isolation, `--bare`, complete upstream tools, and the BCCLI identity system instruction.
+
+**Build:** `npm run rebuild` ran 20/20 routine tests and repacked the private candidate into `botconnector-bccli-qwen-candidate-0.0.0.tgz` (SHA-256 `5F80467085D6387643542DFFD11CEA931F8A379589FFD7D3A69EBB800119E511`). A separate prefix install confirmed packaged `branding.mjs`, Qwen Code 0.26.3, and BCCLI's updated help. **4/4 upstream Node22 integration tests PASS** including the new branding probe. Legacy global `bccli --version` remains 0.4.17; no publish or deployment took place.
+
+**Owner usage:** Exit the currently open Qwen session, then start the freshly rebuilt isolated package below (with the owner-provided API key available only in their process environment):
+
+```powershell
+$root = Join-Path $env:TEMP 'bccli-qwen-poc-20261029'
+$node22 = Join-Path $root 'node22-runtime\node_modules\node\bin\node.exe'
+$cli = Join-Path $env:TEMP 'bccli-qwen-package-smoke-20261029\node_modules\@botconnector\bccli-qwen-candidate\cli.mjs'
+Set-Location (Join-Path $env:TEMP 'bccli-qwen-tooltest')
+& $node22 $cli chat
+```
+
+This is a **white-labeled entry surface**, not removal of upstream provenance or a claim that every diagnostics/settings/attribution screen has been renamed. Further UI branding coverage remains an acceptance/release gate; do not patch arbitrary Qwen strings or disable required license notices.
+
+**Release remains HOLD** pending security, upgrade/race conditions, production accounting and Node runtime support. The new branding feature requires a fresh CLI process; rebuild does not modify a terminal that is already open.
