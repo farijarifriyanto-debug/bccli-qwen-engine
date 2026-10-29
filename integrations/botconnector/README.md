@@ -103,3 +103,38 @@ The POC proxy now normalizes **only optional** two-type `null` unions into their
 17/17 Windows Node.js tests PASS, including real Qwen Code 0.26.3 sending all six coding tools through a strict fake upstream that rejects missing parameters and type arrays, and a regression test that guarantees no mutation of required nullable fields.
 
 **Owner-controlled live inference has not been retested after this second schema repair**. Do not report the live 400 as fixed until the user verifies it.
+
+
+## 2026-10-29 — Ling interactive acceptance and upstream-first continuation
+
+**Owner live acceptance:** `ling-3.0-flash` through BotConnector Gateway and Qwen Code successfully changed a sandbox `test.txt` file to `status=berhasil`. This establishes one real interactive tool-edit success, but is not a general release certification or evidence of ledger settlement.
+
+**Default selection:** `ling-3.0-flash` is the candidate default only if the authenticated `/v1/models` catalog actually lists it. Priority: `--model` > `BOTCONNECTOR_MODEL_ID` > Ling default. A missing model fails closed; no automatic substitution or other-provider fallback.
+
+**Native Qwen session reuse:** `cli.mjs resume [--model MODEL] [prompt]` passes `--continue` to upstream Qwen, with the same `--bare`, fixed Gateway proxy, and approval policy. This resumes the newest session **for the current working directory**, not necessarily the most recent session from another project. No second session database is implemented. Qwen stores chat/session records on disk in the candidate's isolated `~/.bccli-qwen-candidate` directory; those records can contain prompts or tool output. Treat the directory as private and include an explicit privacy/retention policy before general release.
+
+**Windows Node compatibility:** A true local streaming `read_file` → tool result → response sequence passed inside Qwen Code 0.26.3, but Node **24.18.0** emitted `UV_HANDLE_CLOSING` and exited with code 3221226505 after printing the final answer. Repeating the same test on **Node 22.23.4**, installed only under the POC temp directory, exited cleanly with code 0. Do not claim Node24 support for headless tool loops until fixed upstream. The owner's interactive Node24 edit was reported successful, so this is a specifically observed headless shutdown issue rather than proof all Node24 workflows fail.
+
+**Noninteractive edit approval:** With Node22 and a fake local gateway, Qwen first read a real temporary fixture. When a later model instruction requested `edit`, `--approval-mode default` declined the mutation because no interactive user could grant permission; the original file remained unchanged. Never enable `--yolo` as a workaround.
+
+**Testing layout:** `test/*.test.mjs` is routine compatibility coverage, `test-integration/*.test.mjs` exercises the actual upstream Qwen runtime and should be executed on Windows using Node22. Verified: **18/18 routine tests**, **3/3 Node22 integration tests** (read tool loop, no-TTY edit refusal, native session resume). A Node24 headless tool-loop test is an explicitly recorded failure, not silently accepted as PASS.
+
+Windows POC runtime, no changes to global Node or BCCLI installation:
+
+```powershell
+$root = Join-Path $env:TEMP 'bccli-qwen-poc-20261029'
+$node22 = Join-Path $root 'node22-runtime\node_modules\node\bin\node.exe'
+Set-Location (Join-Path $root 'candidate')
+& $node22 --test 'test-integration/*.test.mjs'
+# With BOTCONNECTOR_API_KEY provided securely in the current shell:
+# From a chosen project directory, run:
+# & $node22 (Join-Path $root 'candidate\cli.mjs') chat
+# Later, from that same project directory:
+# & $node22 (Join-Path $root 'candidate\cli.mjs') resume
+```
+
+**Official built-in commands to examine interactively:** `/restore` for file checkpoints and `/resume` for sessions; do not replace them with a custom diff/undo implementation. Neither checkpoint restoration nor real-session restore has been accepted in a live user workflow yet.
+
+**Billing:** Read-only Account API logs for Ling showed `novita:ling-3.0-flash` request/tool-message routing, but the log lines alone do not establish account ledger reconciliation. Token/cost settlement, quota, cache, and possible project privacy behavior remain release blockers. No production settings or published `@botconnector/bccli` package changed.
+
+**No-Go:** Keep this PR draft until Node compatibility, real interactive approvals, `/restore`, persisted-session privacy, MCP/tool integrations, and wallet/usage reconciliation are tested and explicitly approved.
