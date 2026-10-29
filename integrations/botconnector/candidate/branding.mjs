@@ -117,8 +117,8 @@ export function patchUiChunk(file, text) {
       'Run terminal commands with ! (e.g. !ls), subject to your permissions.',
       'Ink terminal tip')
     return replaceOnce(result,
-      'writeStdoutLine(`\\n${t("To continue this session, run")}\\nqwen --resume ${sessionId}`)',
-      'writeStdoutLine("To resume in BCCLI, start the candidate resume command from this project folder.")',
+      'qwen --resume ${sessionId}',
+      'BCCLI candidate resume',
       'Ink session-exit command')
   }
   if (file === 'chunks/start-opentui-ui-Q34XCEMN.js') {
