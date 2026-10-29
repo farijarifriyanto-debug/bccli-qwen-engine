@@ -3,15 +3,18 @@
 // Tested on Windows with Node 22.23.4 and Qwen Code 0.26.3; PTY exit may be nonzero
 // due to WinPTY AttachConsole teardown even when file restore succeeds.
 import {createRequire} from 'node:module'
-import {join} from 'node:path'
+import {dirname,join} from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {tmpdir} from 'node:os'
 import fs from 'node:fs'
-import {childEnvironment,qwenArguments,resolveQwenEntrypoint} from './core.mjs'
-import {startGatewayProxy} from './proxy.mjs'
-const pkg=join(tmpdir(),'bccli-qwen-poc-20261029','candidate','node_modules','@qwen-code','qwen-code','package.json')
+import {childEnvironment,qwenArguments,resolveQwenEntrypoint} from '../core.mjs'
+import {startGatewayProxy} from '../proxy.mjs'
+const candidateRoot=dirname(dirname(fileURLToPath(import.meta.url)))
+const pkg=join(candidateRoot,'node_modules','@qwen-code','qwen-code','package.json')
 const pty=createRequire(pkg)('@lydell/node-pty')
 const root=fs.mkdtempSync(join(tmpdir(),'bccli-restore-interactive-'))
-const node=join(tmpdir(),'bccli-qwen-poc-20261029','node22-runtime','node_modules','node','bin','node.exe')
+if(process.platform!=='win32' || !process.versions.node.startsWith('22.')) throw Error('This manual PTY probe requires Windows and Node 22.')
+const node=process.execPath
 const file=join(root,'test.txt')
 const original=['one','two','three','four','status=awal','six','seven','eight','nine'].join('\n')+'\n'
 fs.writeFileSync(file,original)
