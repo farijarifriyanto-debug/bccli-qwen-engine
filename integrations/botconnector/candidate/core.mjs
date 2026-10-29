@@ -9,6 +9,7 @@ import { GATEWAY } from './gateway.mjs'
 
 export { GATEWAY } from './gateway.mjs'
 export const DEFAULT_MODEL = 'ling-3.0-flash'
+const IDENTITY_INSTRUCTION = 'You are BCCLI, the BotConnector AI coding agent using the user-selected BotConnector model. When introducing yourself, call the product BCCLI, not the underlying engine. Keep capabilities and permission requirements accurate. If asked about the engine provenance, disclose that it uses Qwen Code.'
 const MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/
 const ALLOWED = new Set(['models', 'run', 'chat', 'resume'])
 
@@ -82,6 +83,8 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, co
     '--model', model, '--approval-mode', 'default',
     '--telemetry=false',
   ]
+  // Upstream-supported CLI identity instruction works even under --bare.
+  args.push('--append-system-prompt', IDENTITY_INSTRUCTION)
   if (mcpConfig) args.push('--mcp-config', mcpConfig)
   if (continueSession) args.push('--continue')
   if (prompt) args.push(prompt)
@@ -102,6 +105,7 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home } 
   env.OPENAI_MODEL = model
   env.QWEN_MODEL = model
   env.QWEN_HOME = home ?? join(homedir(), '.bccli-qwen-candidate')
+  env.CLI_TITLE = 'BCCLI - ' + process.cwd().split(/[\\/]/).filter(Boolean).at(-1)
   return env
 }
 
