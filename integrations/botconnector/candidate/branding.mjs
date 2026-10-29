@@ -13,7 +13,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-W3YCOEIP.js': '02828393f6e477a7f36cecff876a6af2d36ece3eb838fceb096d9245eb7fc5f7',
   'chunks/chunk-7L4WTOM2.js': '4d8053c956cc7881b7f87ae2c0e96bf1adc942a37ac37de3d76eaeb9367041fc',
 })
-const BRAND_REVISION = 'bccli-white-label-20261029-v2'
+const BRAND_REVISION = 'bccli-white-label-20261029-v3'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -86,8 +86,8 @@ export function patchUiChunk(file, text) {
   if (file === 'chunks/chunk-OV3EBH6J.js') {
     return replaceOnce(text,
       'You are Qwen Code, ${role} developed by Alibaba Group, ${focus}.',
-      'You are BCCLI, ${role} developed by BICO Inovasi Digital for BotConnector, ${focus}.',
-      'core agent identity')
+      'You are an AI coding assistant, ${role}, ${focus}.',
+      'neutral core agent introduction')
   }
   if (file === 'chunks/chunk-W3YCOEIP.js') {
     let result = replaceExactly(
@@ -107,8 +107,8 @@ export function patchUiChunk(file, text) {
       'user-facing /bug report link')
     return replaceOnce(result,
       'You are Qwen Code, an interactive CLI agent.',
-      'You are BCCLI, the BotConnector interactive coding agent.',
-      'user-facing project initialization prompt')
+      'You are an AI coding assistant operating in a terminal.',
+      'neutral project initialization prompt')
   }
   throw Error('Unrecognized BCCLI branding file.')
 }
