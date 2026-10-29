@@ -14,7 +14,8 @@
     "@qwen-code/qwen-code": "0.26.3"
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "test:security": "node --test test/security-e2e.test.mjs"
   },
   "license": "Apache-2.0"
 }
