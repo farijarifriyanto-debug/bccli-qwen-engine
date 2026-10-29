@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
+import { BCCLI_MODEL_COMMAND } from './model-command.mjs'
 
 const VERSION = '0.26.3'
 const SOURCE_HASHES = Object.freeze({
@@ -14,7 +15,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-7L4WTOM2.js': '4d8053c956cc7881b7f87ae2c0e96bf1adc942a37ac37de3d76eaeb9367041fc',
   'chunks/chunk-QUFSNRKR.js': 'f52e1917c7956b02208b39982bbf7b45fb52c294418ebd93f7f2f0677c1aaa2d',
 })
-const BRAND_REVISION = 'bccli-white-label-20261029-v5-user-surface'
+const BRAND_REVISION = 'bccli-white-label-20261029-v6-model-picker'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -60,7 +61,7 @@ export function guardUpstreamProviderCommands(text) {
     {
       command: 'model',
       detect: 'dialog:"model"',
-      code: 'var modelCommand={name:"model",get description(){return "View BotConnector model selection instructions"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(()=>({type:"message",messageType:"info",content:"Model selection is managed by BotConnector Gateway. For this candidate, exit the session, run the BCCLI models command to list authorized models, and start a new chat using --model MODEL_ID. Upstream provider settings are disabled."}),"action")};',
+      code: BCCLI_MODEL_COMMAND,
     },
     {
       command: 'update',
