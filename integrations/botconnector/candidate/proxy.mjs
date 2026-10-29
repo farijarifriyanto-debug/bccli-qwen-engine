@@ -8,6 +8,22 @@ import { GATEWAY } from './gateway.mjs'
 const ALLOWED_PATHS = new Set(['/v1/models', '/v1/chat/completions', '/v1/responses'])
 const MAX_REQUEST_BYTES = 16 * 1024 * 1024
 
+// Qwen Code 0.26.3 emits get_goal without function.parameters. Some BotConnector
+// upstreams (including Agnes and DeepInfra) reject that OpenAI-compatible shape.
+// Supply an empty-object schema ONLY for parameterless function tools; do not
+// remove tools, strip schemas, or mutate tools that already specify parameters.
+export function normalizeZeroArgFunctionTools(requestBody) {
+  if (!requestBody || typeof requestBody !== 'object' || !Array.isArray(requestBody.tools)) return requestBody
+  let changed = false
+  const tools = requestBody.tools.map((tool) => {
+    const fn = tool?.type === 'function' ? tool.function : null
+    if (!fn || typeof fn.name !== 'string' || fn.parameters != null) return tool
+    changed = true
+    return { ...tool, function: { ...fn, parameters: { type: 'object', properties: {} } } }
+  })
+  return changed ? { ...requestBody, tools } : requestBody
+}
+
 function waitForDrainOrClose(res) {
   if (res.destroyed) return Promise.resolve()
   return new Promise((resolve) => {
@@ -74,6 +90,13 @@ export async function startGatewayProxy({ key, token = randomBytes(32).toString(
           buffers.push(chunk)
         }
         body = Buffer.concat(buffers)
+        if (req.url === '/v1/chat/completions') {
+          let parsed
+          try { parsed = JSON.parse(body.toString('utf8')) }
+          catch { fail(400, 'Invalid JSON request.'); return }
+          const normalized = normalizeZeroArgFunctionTools(parsed)
+          if (normalized !== parsed) body = Buffer.from(JSON.stringify(normalized))
+        }
       }
       const upstream = await fetchImpl(GATEWAY + req.url.slice(3), {
         method,
