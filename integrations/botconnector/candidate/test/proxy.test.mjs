@@ -8,7 +8,7 @@ test('proxy keeps real key upstream; Qwen gets an expiring local token', async (
   const proxy = await startGatewayProxy({
     key: 'REAL_KEY_STAYS_HERE', token: 'LOCAL_SESSION_TOKEN',
     fetchImpl: async (url, init) => {
-      seen.push({ url, auth: init.headers.authorization, method: init.method, body: init.body })
+      seen.push({ url, auth: init.headers.authorization, method: init.method, body: init.body?.toString() })
       return new Response('data: [DONE]\n\n', { status: 200, headers: { 'content-type': 'text/event-stream' } })
     },
   })
