@@ -19,6 +19,10 @@ test('Ink and OpenTUI titles update without modifying non-brand fields', () => {
   assert.match(result, /Use \/help to explore BCCLI/)
   assert.match(result, /Continue your previous BCCLI session/)
   assert.ok(!result.includes('Qwen Code'))
-  assert.equal(patchUiChunk('chunks/start-opentui-ui-Q34XCEMN.js', 'custom.title??">_ Qwen Code"'), 'custom.title??">_ BCCLI | BotConnector"')
+  const openTuiBefore = 'custom.title??">_ Qwen Code";var DEFAULT_GRADIENT=["#4796E4","#847ACE","#C3677F"];addField("Qwen Code",cliVersion'
+  const openTuiAfter = patchUiChunk('chunks/start-opentui-ui-Q34XCEMN.js', openTuiBefore)
+  assert.ok(openTuiAfter.includes('custom.title??">_ BCCLI | BotConnector"'))
+  assert.ok(openTuiAfter.includes('var DEFAULT_GRADIENT=["#00AFA0","#22C55E","#EAB308"]'))
+  assert.ok(openTuiAfter.includes('addField("BCCLI engine",cliVersion'))
   assert.throws(() => patchUiChunk('chunks/startInteractiveUI-CECFAXVK.js', 'different'), /unsupported/)
 })
