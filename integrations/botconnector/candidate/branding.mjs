@@ -13,7 +13,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-W3YCOEIP.js': '02828393f6e477a7f36cecff876a6af2d36ece3eb838fceb096d9245eb7fc5f7',
   'chunks/chunk-7L4WTOM2.js': '4d8053c956cc7881b7f87ae2c0e96bf1adc942a37ac37de3d76eaeb9367041fc',
 })
-const BRAND_REVISION = 'bccli-white-label-20261029-v3'
+const BRAND_REVISION = 'bccli-white-label-20261029-v4-provider-guard'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -42,6 +42,50 @@ function replaceOnce(text, oldValue, newValue, label) {
     throw Error('BCCLI branding unsupported by installed engine: ' + label)
   }
   return text.replace(oldValue, newValue)
+}
+
+
+// Embedded slash commands are part of the upstream renderer bundle. BCCLI's
+// Gateway owns authentication, model eligibility and release management, so
+// those commands must not open arbitrary upstream provider settings or invoke
+// the upstream npm / standalone auto-updater.
+export function guardUpstreamProviderCommands(text) {
+  const replacements = [
+    {
+      command: 'auth',
+      detect: 'dialog:"auth"',
+      code: 'var authCommand={name:"auth",altNames:["connect","login"],get description(){return "BotConnector Gateway connection (managed by BCCLI)"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(()=>({type:"message",messageType:"info",content:"Connected through the BotConnector Gateway. BCCLI manages API credentials and upstream routing. To change the BotConnector API key, exit and set BOTCONNECTOR_API_KEY in your terminal. Use the BCCLI launcher models command to view authorized models."}),"action")};',
+    },
+    {
+      command: 'model',
+      detect: 'dialog:"model"',
+      code: 'var modelCommand={name:"model",get description(){return "View BotConnector model selection instructions"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(()=>({type:"message",messageType:"info",content:"Model selection is managed by BotConnector Gateway. For this candidate, exit the session, run the BCCLI models command to list authorized models, and start a new chat using --model MODEL_ID. Upstream provider settings are disabled."}),"action")};',
+    },
+    {
+      command: 'update',
+      detect: 'Check for Qwen Code updates',
+      code: 'var updateCommand={name:"update",get description(){return "BCCLI release information"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(()=>({type:"message",messageType:"info",content:"BCCLI updates are managed by the BotConnector release channel (@botconnector/bccli). This candidate is not published; the upstream engine updater is disabled. Visit https://github.com/farijarifriyanto-debug/bccli/releases for product releases."}),"action")};',
+    },
+  ]
+  let result = text
+  for (const { command, detect, code } of replacements) {
+    const marker = 'var ' + command + 'Command='
+    const pos = result.indexOf(marker)
+    if (pos < 0 || result.indexOf(marker, pos + 1) !== -1) {
+      throw Error('BCCLI upstream command locator changed: ' + command)
+    }
+    const suffix = ',"action")};'
+    const end = result.indexOf(suffix, pos)
+    if (end < 0 || end - pos > 18000) {
+      throw Error('BCCLI upstream command end changed: ' + command)
+    }
+    const original = result.slice(pos, end + suffix.length)
+    if (!original.includes(detect)) {
+      throw Error('BCCLI upstream command behavior changed: ' + command)
+    }
+    result = result.slice(0, pos) + code + result.slice(end + suffix.length)
+  }
+  return result
 }
 
 export function patchUiChunk(file, text) {
@@ -105,10 +149,15 @@ export function patchUiChunk(file, text) {
       'https://github.com/QwenLM/qwen-code/issues/new?template=bug_report.yml&title={title}&info={info}',
       'https://github.com/farijarifriyanto-debug/bccli/issues/new?title={title}&body={info}',
       'user-facing /bug report link')
-    return replaceOnce(result,
+    result = replaceOnce(result,
       'You are Qwen Code, an interactive CLI agent.',
       'You are an AI coding assistant operating in a terminal.',
       'neutral project initialization prompt')
+    result = replaceOnce(result,
+      '`Qwen Code v${systemInfo.cliVersion}`',
+      '`BCCLI (engine v${systemInfo.cliVersion})`',
+      'non-interactive status product label')
+    return guardUpstreamProviderCommands(result)
   }
   throw Error('Unrecognized BCCLI branding file.')
 }
