@@ -12,8 +12,9 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-OV3EBH6J.js': '3b20ea65e93e6ee00625f9d86906c3d28c45529b4b4dbe72dc050bdae3904505',
   'chunks/chunk-W3YCOEIP.js': '02828393f6e477a7f36cecff876a6af2d36ece3eb838fceb096d9245eb7fc5f7',
   'chunks/chunk-7L4WTOM2.js': '4d8053c956cc7881b7f87ae2c0e96bf1adc942a37ac37de3d76eaeb9367041fc',
+  'chunks/chunk-QUFSNRKR.js': 'f52e1917c7956b02208b39982bbf7b45fb52c294418ebd93f7f2f0677c1aaa2d',
 })
-const BRAND_REVISION = 'bccli-white-label-20261029-v4-provider-guard'
+const BRAND_REVISION = 'bccli-white-label-20261029-v5-user-surface'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -107,11 +108,18 @@ export function patchUiChunk(file, text) {
       'Use /help to explore BCCLI tools and commands.',
       'Ink startup tip',
     )
-    return replaceOnce(result,
+    result = replaceOnce(result,
       'You can resume a previous conversation by running qwen --continue or qwen --resume.',
       'Continue your previous BCCLI session using the resume command.',
-      'Ink resume tip',
-    )
+      'Ink resume tip')
+    result = replaceOnce(result,
+      'You can run any shell commands from Qwen Code using ! (e.g. !ls).',
+      'Run terminal commands with ! (e.g. !ls), subject to your permissions.',
+      'Ink terminal tip')
+    return replaceOnce(result,
+      'writeStdoutLine(`\\n${t("To continue this session, run")}\\nqwen --resume ${sessionId}`)',
+      'writeStdoutLine("To resume in BCCLI, start the candidate resume command from this project folder.")',
+      'Ink session-exit command')
   }
   if (file === 'chunks/start-opentui-ui-Q34XCEMN.js') {
     let result = replaceOnce(
@@ -122,10 +130,20 @@ export function patchUiChunk(file, text) {
       'var DEFAULT_GRADIENT=["#4796E4","#847ACE","#C3677F"]',
       'var DEFAULT_GRADIENT='+JSON.stringify(BCCLI_COLORS),
       'OpenTUI default gradient')
-    return replaceOnce(result,
+    result = replaceOnce(result,
       'addField("Qwen Code",cliVersion',
       'addField("BCCLI engine",cliVersion',
       'OpenTUI diagnostic label')
+    return replaceExactly(result,
+      'To continue this session, run qwen --resume ${stats.sessionId}',
+      'To resume, run the BCCLI candidate resume command from the same project directory', 2,
+      'OpenTUI session-exit commands')
+  }
+  if (file === 'chunks/chunk-QUFSNRKR.js') {
+    return replaceOnce(text,
+      'children:["qwen --resume ",stats.sessionId]',
+      'children:["BCCLI candidate resume (same project)", ""]',
+      'Ink summary session-resume command')
   }
   if (file === 'chunks/chunk-OV3EBH6J.js') {
     return replaceOnce(text,
