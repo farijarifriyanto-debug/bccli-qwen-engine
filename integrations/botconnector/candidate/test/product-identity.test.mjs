@@ -30,18 +30,25 @@ test('brand logo palette uses teal, green and amber without Qwen gradient', () =
   assert.ok(changed.includes('addField("BCCLI engine",cliVersion'))
 })
 
-test('product /bug reports and initialization point to BCCLI', () => {
+test('BotConnector provider and release commands cannot open upstream menus', () => {
   const old = 'https://github.com/QwenLM/qwen-code/issues/new?template=bug_report.yml&title={title}&info={info}'
   const intro = 'You are Qwen Code, an interactive CLI agent.'
-  const commands = [
+  const stub = [
     'var authCommand={name:"auth",action:__name(()=>({type:"dialog",dialog:"auth"}),"action")};',
     'var modelCommand={name:"model",action:__name(()=>({type:"dialog",dialog:"model"}),"action")};',
     'var updateCommand={name:"update",description:"Check for Qwen Code updates",action:__name(()=>({type:"message"}),"action")};',
-    '`Qwen Code v' + '
-  assert.match(branded, /github\.com\/farijarifriyanto-debug\/bccli\/issues\/new/)
-  assert.match(branded, /You are an AI coding assistant operating in a terminal/)
-  assert.ok(!branded.includes('github.com/QwenLM'))
-  assert.ok(!branded.includes('You are Qwen Code'))
+  ]
+  const status = String.fromCharCode(96) + 'Qwen Code v' + String.fromCharCode(36) + '{systemInfo.cliVersion}' + String.fromCharCode(96)
+  const branded = patchUiChunk('chunks/chunk-7L4WTOM2.js', [old,intro,...stub,status].join('\\n'))
+  assert.ok(branded.includes('github.com/farijarifriyanto-debug/bccli/issues/new'))
+  assert.ok(branded.includes('You are an AI coding assistant operating in a terminal.'))
+  assert.ok(branded.includes('Connected through the BotConnector Gateway'))
+  assert.ok(branded.includes('Model selection is managed by BotConnector Gateway'))
+  assert.ok(branded.includes('BCCLI release information'))
+  assert.ok(branded.includes('BCCLI (engine v'))
+  assert.ok(!branded.includes('dialog:"auth"'))
+  assert.ok(!branded.includes('dialog:"model"'))
+  assert.ok(!branded.includes('Check for Qwen Code updates'))
   assert.ok(!branded.includes('You are BCCLI'))
 })
 
