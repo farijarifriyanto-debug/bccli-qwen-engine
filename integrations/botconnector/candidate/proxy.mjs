@@ -1,7 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { once } from 'node:events'
 import { createServer } from 'node:http'
-import { GATEWAY } from './core.mjs'
+import { GATEWAY } from './gateway.mjs'
 
 // This proxy lives only for one Qwen Code session. Real provider keys remain in
 // the launcher process; MCP and bash subprocesses can see only a short-lived
