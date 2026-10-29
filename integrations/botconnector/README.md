@@ -1,76 +1,28 @@
-# BCCLI × Qwen Code — isolated compatibility proof (2026-10-29)
+# BCCLI × Qwen Code — upstream-first candidate (2026-10-29)
 
-> **Status: POC only.** This fork has not replaced the published `@botconnector/bccli` package, and no production services were changed.
+> **DRAFT / NO-GO for production.** Candidate code lives entirely under `integrations/botconnector/candidate/`. No upstream Qwen Code engine, TUI, model, tool or permission implementation has been edited. Do not publish this package as `@botconnector/bccli` or replace an installed `bccli`.
 
-## Policy
+## Rationale
 
-- **Engine:** Qwen Code (Apache-2.0), track `QwenLM/qwen-code` as upstream. Preserve upstream copyright and license notices.
-- **Distribution target:** npm executable `bccli`, **not** a Windows EXE installer. This is a target, not a released artifact.
-- **Customization:** prefer an outside-the-engine launcher / provider configuration over patching Qwen Code's internal agent, permissions, TUI, or tool runner.
-- **Auth, pricing, billing, quota, and routing:** BotConnector Gateway remains authoritative. No second wallet or billing service.
-- **Backward compatibility:** retain the existing Ink-based BCCLI until the new engine, package, and migration all pass acceptance.
-- **Secret handling:** never commit API keys; never persist token values to repo settings or debug logs. Use an explicit environment variable; prevent project-controlled provider configuration from redirecting credentials to another host.
+Use maintained upstream [Qwen Code](https://github.com/QwenLM/qwen-code) (Apache-2.0) as a candidate engine, retaining its tools and terminal UX. The only BotConnector-specific code is an **external Node.js adapter** and a short-lived local Gateway proxy. Keep upstream copyright/license notices. The fork tracks Qwen Code; avoid rebuilding the agent engine.
 
-## Current compatibility evidence
+The candidate npm manifest is **private** and pins `@qwen-code/qwen-code@0.26.3`. Its command is `bccli-qwen-candidate`, not `bccli`.
 
-Laptop: Windows 11 + Node 24.18.0. Isolated `npm install --prefix %TEMP%\\bccli-qwen-poc-20261029 --no-save --ignore-scripts --no-audit --no-fund @qwen-code/qwen-code@0.26.3` succeeded.
+## Architecture and security boundary
 
-Tests passed for `--version` (0.26.3), `--help`, and a one-shot completion routed to a **loopback-only mock** at `http://127.0.0.1:18876/v1` using:
-- `QWEN_HOME` pointing at an isolated temporary config folder;
-- `--bare --safe-mode --auth-type openai --model bc-poc-model --approval-mode plan`;
-- fake `OPENAI_API_KEY=poc-only-key` and mock endpoint `OPENAI_BASE_URL`;
-- chat-completions streaming, fake authorization header, and the response `POC_OK` with process exit 0.
+1. The launcher reads `BOTCONNECTOR_API_KEY` only from the **current process environment** and fetches the authenticated, live model list from `https://api.botconnector.id/v1/models`. A chosen model must exist in the returned list. 401, network failure and an empty catalog **fail closed**; no fallback provider or fabricated model ID.
+2. On `run` / `chat`, the launcher starts a **per-session ephemeral HTTP proxy bound exclusively to `127.0.0.1`**. The proxy retains the real API key and forwards only the allowlisted `/v1/models`, `/v1/chat/completions` and `/v1/responses` routes to the **fixed BotConnector HTTPS Gateway**. Cross-host redirects are rejected. Requests are bounded to 16 MiB in this POC.
+3. Qwen Code receives only a random short-lived proxy token and loopback endpoint. `BOTCONNECTOR_API_KEY` is removed from the Qwen child environment. Its shell and MCP subprocesses may inherit **the local token**, not the original Gateway key. The proxy closes on Qwen exit.
+4. Qwen always starts with `--bare` and `--approval-mode default`. The adapter rejects arbitrary Qwen CLI flag passthrough, `--yolo`, and custom provider URLs. This prevents a cloned repository's `.qwen/settings.json` from overriding the auth endpoint.
+5. MCP is **off by default**. The user may opt in with `--mcp-config ABSOLUTE_PATH` only when the JSON file is a regular non-symlink file **directly inside `~/.bccli-qwen-candidate/`**, and contains only a non-empty `mcpServers` map. Project-local MCP files are not loaded. Starting an MCP server can execute programs immediately; approve only trusted server definitions.
 
-This proves only **OpenAI-compatible request construction, authentication-header forwarding, streaming parsing and terminal execution**. It does **not** prove compatibility with the live BotConnector API, real model tool calling, settlement, or model availability.
+**Residual risk:** A child MCP/shell process that obtains the ephemeral local token may still send requests to the local proxy **while the session is active**, incurring usage. The proxy protects the long-lived key from that process but is not an OS sandbox or a substitute for Gateway quotas, ledger accounting or enterprise isolation. Do not describe this candidate as fully secure or production-ready.
 
-Direct reuse of a private BCCLI credential for unattended verification was blocked by safety controls. Do not attempt to bypass that protection. An owner-initiated auth/test flow is still required.
+`--bare` intentionally disables Qwen's implicit project-context, hooks, skills, extension and MCP discovery. Explicit MCP registration passed the test, but skills, worktrees, context parity, session resume and real tool-call execution have **not** been fully validated.
 
-## Minimal live gateway setup (owner-controlled)
+## Windows developer setup (isolated)
 
-Use Qwen Code's built-in `openai` provider, without modifying the engine:
-
-```powershell
-# Run in a separate terminal; avoid adding credentials to shell history.
-# BOTCONNECTOR_API_KEY must already be provided securely in this process environment.
-if (-not $env:BOTCONNECTOR_API_KEY) { throw 'Provide BOTCONNECTOR_API_KEY before running.' }
-$env:OPENAI_API_KEY = $env:BOTCONNECTOR_API_KEY
-$env:OPENAI_BASE_URL = 'https://api.botconnector.id/v1'
-
-# Choose a real, eligible model ID from the authenticated Gateway /v1/models response.
-if (-not $env:BOTCONNECTOR_MODEL_ID) { throw 'Provide an eligible BOTCONNECTOR_MODEL_ID.' }
-$env:OPENAI_MODEL = $env:BOTCONNECTOR_MODEL_ID
-qwen --auth-type openai --model $env:OPENAI_MODEL
-```
-
-For the final package, read the key only through an approved BotConnector authentication flow. Never pass secrets as command-line arguments. The configuration file should store only the endpoint, env-key reference, and chosen model ID. The models list should come from the authenticated Gateway, not hard-coded upstream identifiers.
-
-For an isolated test, set `QWEN_HOME` to a dedicated test directory and use `--approval-mode plan`; do not use `--yolo`.
-
-## Release blockers (must pass before npm cutover)
-
-- [ ] Explicitly authorized authenticated Gateway model discovery, no static model IDs or silent fallback to a different provider.
-- [ ] Real low-cost inference test: streaming + nonstreaming + chat + tool-calling + tool results, and transparent 401/403/429 behavior.
-- [ ] Gateway ledger reconciliation for token/cache usage and PAYG/plan quotas; no client-side price authority.
-- [ ] Check project `.qwen/settings.json` cannot repoint the trusted BotConnector credential to an untrusted endpoint; fail closed if needed.
-- [ ] Windows Terminal interactive UX, tool approvals, diff, undo, subagent, MCP, cancellation and session resume.
-- [ ] Windows x64, Linux x64, and requested architectures build/install via npm; no executable installer requirement.
-- [ ] Compatibility/opt-in migration from existing `~/.bccli` settings and sessions with rollback.
-- [ ] CI tests, license/notice retention, minimal patch diff and upstream-update procedure.
-
-**No production publish/merge/deployment authorized by this POC.**
-
-
-## Implemented upstream-first candidate (not released)
-
-The **external** candidate adapter is in [candidate/](candidate/). No upstream Qwen agent/TUI/tool files were edited. The candidate package is private/unpublished and exposes only the temporary binary name `bccli-qwen-candidate`, so it does not override any installed `bccli`.
-
-Features already implemented:
-- Fixed HTTPS Gateway (`https://api.botconnector.id/v1`), authenticated `GET /models` on every start, no stale catalog and no fallback.
-- Explicit eligible model selection with `--model` or `BOTCONNECTOR_MODEL_ID`; selected model must be present in the live catalog.
-- Only `BOTCONNECTOR_API_KEY` from the process environment is accepted. No automatic reading/migration of existing BCCLI credentials or storing keys in the repository.
-- Direct Node spawning of the pinned upstream Qwen Code dependency; blocked passthrough flags, `--bare` and normal default tool permissions. The original named gateway key variable is removed from the child environment after mapping it to the OpenAI-compatible credential variable.
-
-Commands once installed into an **isolated** folder:
+Use Node.js 22+ and work **only** in the candidate folder, never install over the existing `bccli`.
 
 ```powershell
 cd integrations/botconnector/candidate
@@ -78,23 +30,37 @@ npm install --ignore-scripts
 npm test
 npm run test:security
 node cli.mjs --help
-
-# To run real inference, the account owner must securely provide the following
-# environment variables in their own terminal (never commit the values):
-# BOTCONNECTOR_API_KEY and BOTCONNECTOR_MODEL_ID.
-node cli.mjs models
-node cli.mjs run --model $env:BOTCONNECTOR_MODEL_ID "Reply E2E_OK"
 ```
 
-### Security evidence
+For a **real** owner-authorized Gateway test, first set `BOTCONNECTOR_API_KEY` securely in the terminal environment (never put the value in a Git repository, command-line argument, logs or chat), then:
 
-An adversarial local test injected a provider route with the same model ID but a **different URL** into project and Qwen-home settings. With normal Qwen startup, the older observed configuration forwarded a **fake** credential to the wrong local server. With the candidate's enforced `--bare`, the trusted mock received the request and the wrong server received **zero** requests. This is now a repeatable regression test (`npm run test:security`). No real credential was used.
+```powershell
+node cli.mjs models
+# Replace the example below with an eligible model id returned by the live command:
+node cli.mjs run --model YOUR_ELIGIBLE_MODEL_ID "Reply E2E_OK"
+```
 
-**Limitation:** `--bare` also changes Qwen's project discovery/configuration behavior, so skills, MCP, project context and other feature parity must be proven before release. Do not weaken this security measure merely to enable additional integrations.
+For optional MCP, first create a personally reviewed JSON config in `~/.bccli-qwen-candidate/` and pass its **absolute path** to `--mcp-config`. Nothing is loaded from the repository being edited. The MCP config must not contain the BotConnector API key.
 
-### Evidence as of 2026-10-29
+Do **not** set `OPENAI_API_KEY=BOTCONNECTOR_API_KEY` and run Qwen Code directly with untrusted MCP servers; that can expose the long-lived credential to child processes.
 
-- Windows Node.js 24.18.0, Qwen Code 0.26.3, six adapter unit tests + one true upstream security smoke test: PASS.
-- npm dry-run packaging: PASS; package remains private and **not published**.
-- Existing BCCLI 0.4.17 unchanged.
-- Live authenticated BotConnector Gateway inference, streaming/tool calling, ledger billing reconciliation, and production npm cutover: **NOT TESTED / NO-GO**.
+## Verification evidence (29 October 2026)
+
+- Windows 11 / Node.js v24.18.0: isolated npm install of upstream Qwen Code 0.26.3 PASS; CLI `--version` and `--help` PASS.
+- Mock OpenAI-compatible streaming: PASS (`POC_OK`, exit 0), with fake credential.
+- Adversarial project and Qwen-home settings: **zero** requests reached the attacker endpoint in `--bare` mode.
+- Explicit MCP handshake and model tool registration: PASS. A separate end-to-end test proved its subprocess **did not inherit the real Gateway key** when using the ephemeral proxy.
+- Candidate adapter test suite: **13/13 PASS** (including Qwen upstream-backed regressions and proxy tests).
+- `npm pack --dry-run`: PASS (no release). Existing `bccli` installation (0.4.17) unchanged.
+- No live BotConnector customer key used in the tests; no paid AI inference or production billing test performed.
+
+## Release gate (still HOLD)
+
+- [ ] Owner-authorized **live** Gateway model discovery, one low-cost request and complete 401/403/429 failure tests.
+- [ ] Tool calling, model tool results, streaming, stop/cancellation and diff safety end-to-end.
+- [ ] Verify actual Gateway usage/billing ledger and plan/PAYG quota accounting; keep Gateway authoritative.
+- [ ] Skills, hooks, project instructions, worktrees, session resume and subagents feature parity **without removing `--bare` security**.
+- [ ] Windows/Linux npm packaging and CI, upstream version sync and regression checks, license notices.
+- [ ] Explicit opt-in migration/rollback from old `bccli`, then separate owner approval for npm cutover. No merge/publish/deploy now.
+
+Keep this PR in draft until the above conditions are verified.
