@@ -1,0 +1,20 @@
+{
+  "name": "@botconnector/bccli-qwen-candidate",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Unreleased BCCLI OpenAI-compatible gateway wrapper for upstream Qwen Code",
+  "type": "module",
+  "bin": {
+    "bccli-qwen-candidate": "./cli.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@qwen-code/qwen-code": "0.26.3"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "license": "Apache-2.0"
+}
