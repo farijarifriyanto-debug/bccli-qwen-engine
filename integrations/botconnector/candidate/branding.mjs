@@ -14,8 +14,10 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-W3YCOEIP.js': '02828393f6e477a7f36cecff876a6af2d36ece3eb838fceb096d9245eb7fc5f7',
   'chunks/chunk-7L4WTOM2.js': '4d8053c956cc7881b7f87ae2c0e96bf1adc942a37ac37de3d76eaeb9367041fc',
   'chunks/chunk-QUFSNRKR.js': 'f52e1917c7956b02208b39982bbf7b45fb52c294418ebd93f7f2f0677c1aaa2d',
+  'chunks/chunk-2PLSL3VQ.js': 'f475f043f1ab8314a64699ebb45e43026bb1a1fe65f1ac259f1898afb8a6c5d9',
+  'chunks/chunk-ERV2ECV3.js': '7d2511a8317ee2c44edd2fd62b43966b9acfbfaac79175cd0cc9fb9ed42051c6',
 })
-const BRAND_REVISION = 'bccli-white-label-20261029-v8-visual-sweep'
+const BRAND_REVISION = 'bccli-white-label-20261029-v9-permission-errors'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -221,6 +223,18 @@ export function patchUiChunk(file, text) {
       'children:["qwen --resume ",stats.sessionId]',
       'children:["BCCLI candidate resume (same project)", ""]',
       'Ink summary session-resume command'))
+  }
+  if (file === 'chunks/chunk-2PLSL3VQ.js') {
+    return replaceOnce(text,
+      "To enable automatic tool execution, use the -y flag (YOLO mode):\\nExample: qwen -p 'your prompt' -y",
+      "BCCLI requires an interactive approval for this tool. Re-run in interactive mode and approve the tool; unattended auto-approval is disabled.",
+      'headless approval warning')
+  }
+  if (file === 'chunks/chunk-ERV2ECV3.js') {
+    return replaceExactly(text,
+      'Qwen Code requires permission to use ',
+      'BCCLI requires permission to use ', 4,
+      'user-facing tool permission errors')
   }
   if (file === 'chunks/chunk-OV3EBH6J.js') {
     return replaceOnce(text,
