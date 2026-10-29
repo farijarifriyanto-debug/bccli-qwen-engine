@@ -62,17 +62,17 @@ For an isolated test, set `QWEN_HOME` to a dedicated test directory and use `--a
 
 ## Implemented upstream-first candidate (not released)
 
-The **external** candidate adapter is in [candidate/](candidate/). No upstream Qwen agent/TUI/tool files were edited. The candidate package is private/unpublished and exposes only the temporary binary name \`bccli-qwen-candidate\`, so it does not override any installed \`bccli\`.
+The **external** candidate adapter is in [candidate/](candidate/). No upstream Qwen agent/TUI/tool files were edited. The candidate package is private/unpublished and exposes only the temporary binary name `bccli-qwen-candidate`, so it does not override any installed `bccli`.
 
 Features already implemented:
-- Fixed HTTPS Gateway (\`https://api.botconnector.id/v1\`), authenticated \`GET /models\` on every start, no stale catalog and no fallback.
-- Explicit eligible model selection with \`--model\` or \`BOTCONNECTOR_MODEL_ID\`; selected model must be present in the live catalog.
-- Only \`BOTCONNECTOR_API_KEY\` from the process environment is accepted. No automatic reading/migration of existing BCCLI credentials or storing keys in the repository.
-- Direct Node spawning of the pinned upstream Qwen Code dependency; blocked passthrough flags, \`--bare\` and normal default tool permissions. The original named gateway key variable is removed from the child environment after mapping it to the OpenAI-compatible credential variable.
+- Fixed HTTPS Gateway (`https://api.botconnector.id/v1`), authenticated `GET /models` on every start, no stale catalog and no fallback.
+- Explicit eligible model selection with `--model` or `BOTCONNECTOR_MODEL_ID`; selected model must be present in the live catalog.
+- Only `BOTCONNECTOR_API_KEY` from the process environment is accepted. No automatic reading/migration of existing BCCLI credentials or storing keys in the repository.
+- Direct Node spawning of the pinned upstream Qwen Code dependency; blocked passthrough flags, `--bare` and normal default tool permissions. The original named gateway key variable is removed from the child environment after mapping it to the OpenAI-compatible credential variable.
 
 Commands once installed into an **isolated** folder:
 
-\`\`\`powershell
+```powershell
 cd integrations/botconnector/candidate
 npm install --ignore-scripts
 npm test
@@ -84,13 +84,13 @@ node cli.mjs --help
 # BOTCONNECTOR_API_KEY and BOTCONNECTOR_MODEL_ID.
 node cli.mjs models
 node cli.mjs run --model $env:BOTCONNECTOR_MODEL_ID "Reply E2E_OK"
-\`\`\`
+```
 
 ### Security evidence
 
-An adversarial local test injected a provider route with the same model ID but a **different URL** into project and Qwen-home settings. With normal Qwen startup, the older observed configuration forwarded a **fake** credential to the wrong local server. With the candidate's enforced \`--bare\`, the trusted mock received the request and the wrong server received **zero** requests. This is now a repeatable regression test (\`npm run test:security\`). No real credential was used.
+An adversarial local test injected a provider route with the same model ID but a **different URL** into project and Qwen-home settings. With normal Qwen startup, the older observed configuration forwarded a **fake** credential to the wrong local server. With the candidate's enforced `--bare`, the trusted mock received the request and the wrong server received **zero** requests. This is now a repeatable regression test (`npm run test:security`). No real credential was used.
 
-**Limitation:** \`--bare\` also changes Qwen's project discovery/configuration behavior, so skills, MCP, project context and other feature parity must be proven before release. Do not weaken this security measure merely to enable additional integrations.
+**Limitation:** `--bare` also changes Qwen's project discovery/configuration behavior, so skills, MCP, project context and other feature parity must be proven before release. Do not weaken this security measure merely to enable additional integrations.
 
 ### Evidence as of 2026-10-29
 
