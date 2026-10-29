@@ -263,3 +263,41 @@ cd "$env:TEMP\bccli-qwen-tooltest"
 Start a **new** conversation, not `resume`: older transcripts may preserve the previous forced BCCLI or Alibaba answer. For acceptance, ask `Model AI apa yang aktif, dan apa perbedaan model AI, BCCLI, dan engine-nya?` The expected fact pattern is dynamically selected model ID, app identity, and engine attribution only when relevant—not a fixed “I am BCCLI” script.
 
 **Release stays DRAFT/HOLD.** No npm publish, production deployment, merge, or global BCCLI replacement was performed.
+
+
+## 2026-10-29 — provider/login, update and GitHub link sweep
+
+Owner screenshot showed **Connect a Provider** with QwenCloud / Alibaba ModelStudio / Qwen terms and a GitHub link referring to the upstream Qwen product. For BCCLI this is the wrong onboarding surface: BCCLI uses **one BotConnector Gateway account and an authenticated model catalog**, while upstream vendors and routing are configured in BotConnector, not in Qwen.
+
+### Product-facing changes in private branded runtime
+
+- Upstream `/auth`, `/connect`, `/login`: disabled upstream provider modal and replaced it with a BotConnector Gateway connection notice. It explains BCCLI login and the selected Gateway credential.
+- Upstream `/model`: for now disabled the upstream multi-provider picker; users select among eligible authenticated Gateway model IDs with the BCCLI candidate `models` and `chat --model ID` commands. This avoids bypassing BCCLI Gateway model verification. A proper in-session BotConnector picker remains a release gate; **do not claim it exists yet**.
+- Upstream `/update`: disabled direct Qwen npm/standalone updater and instead displays BCCLI release details. Also sets upstream `QWEN_CODE_SKIP_UPDATE_CHECK_ONCE=true` on each child process, preventing automatic upstream update checks on ordinary BCCLI startup.
+- `/bug` points to the independent BCCLI product GitHub `https://github.com/farijarifriyanto-debug/bccli/issues` (not engine fork); candidate package `repository`, `bugs` and homepage are product-first.
+- Noninteractive `/status` says BCCLI with the **engine** version. Upstream `qwen --resume` exit hints on Ink, OpenTUI and Ink summary were rewritten to the supported BCCLI candidate `resume` workflow. These changes only affect displayed text and commands, not saved session semantics.
+- The source package, backend engine, license and required upstream attribution remain intact. The upstream provider dialog code and Qwen URLs remain inside the pinned engine for audit/provenance but are *not exposed by the patched slash command*. This is not a claim that every buried diagnostic or optional settings screen contains no upstream string.
+
+### Existing BCCLI login reuse
+
+The candidate does **not create a second credential store**. If `BOTCONNECTOR_API_KEY` is set, it wins; otherwise it reads the existing owner's `bc-cloud` entry from `~/.bccli/credentials` (or explicit absolute `BCCLI_HOME`). Non-file/symlink/oversized/invalid credential files fail closed. Key contents are never logged, never passed on command-line argv, never sent to the Qwen child, and never included in the npm package. This is the same saved-login convention used by existing BCCLI, and it permits `bccli login` to serve as the connection flow. The prototype does not yet implement its own interactive key-writing command.
+
+### Security and test evidence
+
+- Pinned copies only; original `@qwen-code/qwen-code@0.26.3` source bytes unchanged; all modified bundles are verified against SHA-256 and cache revision before any branded launch. `--bare` stays on, permission policy stays `default`, and the proxy only forwards to `https://api.botconnector.id/v1`.
+- Existing unit suite now contains fake-key credential tests (saved-login reuse, env precedence, missing login, symlink prevention), slash command tests and branding/release-link tests.
+- Windows Node22 PTY with a **fake** Gateway key verified: `/auth` shows BotConnector managed connection and no QwenCloud/Alibaba modal; `/model` reports Gateway-based model selection; `/update` reports BotConnector release policy rather than installing Qwen. Original product GitHub bug and release paths are set to BCCLI.
+- Key privacy, account-specific billing, newer Node runtime stability, model picker parity, optional Qwen settings flows, and broader diagnostics remain release verification gates. No npm publish, production deployment, global package replacement or branch merge.
+
+### Using the latest candidate after an isolated rebuild
+
+```powershell
+$root = Join-Path $env:TEMP 'bccli-qwen-poc-20261029'
+$node22 = Join-Path $root 'node22-runtime\node_modules\node\bin\node.exe'
+$cli = Join-Path $env:TEMP 'bccli-qwen-provider-sweep-install-20261029\node_modules\@botconnector\bccli-qwen-candidate\cli.mjs'
+cd (Join-Path $env:TEMP 'bccli-qwen-tooltest')
+& $node22 $cli models
+& $node22 $cli chat    # defaults to ling-3.0-flash if eligible
+```
+
+Use a new CLI process; an already-open session is not hot-reloaded.
