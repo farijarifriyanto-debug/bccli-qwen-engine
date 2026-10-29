@@ -155,3 +155,26 @@ The five request IDs have **no matching PAYG reservations or ledger entries**. F
 Probe was run with Node 22.23.4 and Qwen's bundled WinPTY dependency with `useConpty:false` (the default ConPTY agent cannot attach to this remote terminal). The external PTY helper can report an `AttachConsole` error when forcibly closed; this is separate from the successful file-content assertion. A Windows-only manual regression script is saved under `candidate/test-integration/manual-restore-winpty.mjs`. It uses only fake tokens, a localhost mock and temporary files; it is intentionally **not** part of routine `npm test`, which stays stable on Node 24.
 
 **Remaining release gates:** cross-runtime Node compatibility, authorized live MCP and subagent acceptance, explicit plan/quota reconciliation and actual provider invoicing, session-retention privacy, installer-free npm migration/rollback. Keep current `@botconnector/bccli` release unchanged. The candidate PR stays draft.
+
+
+## 2026-10-29 — mandatory candidate rebuild after any change
+
+The candidate is **plain Node ESM**, not a separately compiled exe. To avoid stale files, run the repeatable npm rebuild before installing/test-driving a new revision:
+
+```powershell
+cd "$env:TEMP\bccli-qwen-poc-20261029\candidate"
+npm.cmd ci --ignore-scripts --no-audit
+npm.cmd run rebuild
+# Run upstream integration tests explicitly with Node 22:
+$root = Join-Path $env:TEMP 'bccli-qwen-poc-20261029'
+$node22 = Join-Path $root 'node22-runtime\node_modules\node\bin\node.exe'
+& $node22 --test test-integration/*.test.mjs
+```
+
+`npm run rebuild` performs syntax checks, all routine adapter tests, and creates a local npm tarball. The package manifest whitelists only `cli.mjs`, `core.mjs`, `proxy.mjs` and `gateway.mjs`; `package.json` is included automatically. `package-lock.json` pins the dependency graph. The tarball is a **private local artifact**, not a publication. Its path must not be confused with the existing `@botconnector/bccli` release.
+
+**Verified local rebuild:** `botconnector-bccli-qwen-candidate-0.0.0.tgz`, 6,389 bytes, SHA-256 `C6D0AB4256DFB4E0ED9FD5F62115F725EAF8E63133196AB0110E941E68B64D8D`. Source checks 18/18 PASS. A separate isolated `npm install --prefix ... <tarball>` installed the package and pinned Qwen Code 0.26.3; smoke checks confirmed the candidate binary, Ling default, and fail-closed missing credentials. Installed legacy BCCLI was still 0.4.17.
+
+The rebuilt package is under `%TEMP%\bccli-qwen-package-smoke-20261029\node_modules\@botconnector\bccli-qwen-candidate\cli.mjs` for isolated testing. Start it with the *isolated Node22 runtime* to avoid the known Node24 headless shutdown issue. **Restart an already running Qwen terminal** to pick up new launcher code; a rebuild does not hot-reload active CLI processes.
+
+**Production release stays HOLD** until the separate blocked gates pass. Rebuild success alone does not authorize a merge, global install, npm publish, or production deployment.
