@@ -64,3 +64,26 @@ Do **not** set `OPENAI_API_KEY=BOTCONNECTOR_API_KEY` and run Qwen Code directly 
 - [ ] Explicit opt-in migration/rollback from old `bccli`, then separate owner approval for npm cutover. No merge/publish/deploy now.
 
 Keep this PR in draft until the above conditions are verified.
+
+## 2026-10-29 live error diagnosis: Qwen Code get_goal schema
+
+Owner live tests with `agnes-3.0-flash` and `glm-5.3-flash` both returned HTTP 400, even after reducing `QWEN_CODE_MAX_OUTPUT_TOKENS` to 4096. A **read-only** review of the production Account API error logs confirmed the same upstream rejection in both cases:
+
+```text
+Invalid request body, Failed to parse '.tools[1]'
+```
+
+A fake-key capture of the unchanged Qwen Code 0.26.3 request identified `tools[1].function.name = get_goal` **without** `function.parameters`. Other emitted coding tools had parameter schemas. Some upstream OpenAI-compatible providers reject an absent parameters field, even for a tool that accepts no arguments.
+
+**Fix:** `candidate/proxy.mjs` normalizes only zero-argument function tools missing `parameters` to `{ "type": "object", "properties": {} }` before forwarding to the immutable BotConnector Gateway. It does not remove or disable coding tools, adjust model IDs, modify the engine, or change Gateway code. All unrelated tools and existing schemas pass through unchanged. The first rejected schema is addressed; further upstream validation errors remain possible until an owner-controlled live retest.
+
+**Regression verification:** 16/16 tests PASS locally on Windows/Node 24, including the **real Qwen 0.26.3** invoking a strict mock upstream which rejects missing tool parameters. Qwen emits `get_goal`, the proxy repairs its schema, and streaming ends with `E2E_OK`. No real account key was used for that verification.
+
+**Owner live retest:** from the existing candidate folder, with `BOTCONNECTOR_API_KEY` supplied securely in the PowerShell session, run:
+
+```powershell
+$env:QWEN_CODE_MAX_OUTPUT_TOKENS = "4096"
+node .\\cli.mjs run --model "agnes-3.0-flash" "Balas tepat E2E_OK"
+```
+
+The 4096-token cap is an optional conservative test configuration, **not the identified root-cause fix**. Do not echo API keys or enable full request logging. If the live request still fails, inspect only sanitized upstream errors by request ID before changing compatibility mappings again.
