@@ -17,5 +17,8 @@
     "test": "node --test test/*.test.mjs",
     "test:security": "node --test test/security-e2e.test.mjs test/proxy-mcp-e2e.test.mjs test/trusted-mcp.test.mjs test/proxy.test.mjs"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "overrides": {
+    "sharp": "0.35.5"
+  }
 }
