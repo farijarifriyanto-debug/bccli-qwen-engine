@@ -10,7 +10,7 @@ import { GATEWAY } from './gateway.mjs'
 export { GATEWAY } from './gateway.mjs'
 export const DEFAULT_MODEL = 'ling-3.0-flash'
 const MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/
-const ALLOWED = new Set(['models', 'run', 'chat'])
+const ALLOWED = new Set(['models', 'run', 'chat', 'resume'])
 
 export function parseArgs(argv) {
   const args = [...argv]
@@ -73,7 +73,7 @@ export function selectModel(models, value) {
   return value
 }
 
-export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig } = {}) {
+export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false } = {}) {
   // --bare is security critical: project settings may otherwise override
   // the provider baseUrl, forwarding an API key to an attacker-controlled endpoint.
   const args = [
@@ -83,6 +83,7 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig } =
     '--telemetry=false',
   ]
   if (mcpConfig) args.push('--mcp-config', mcpConfig)
+  if (continueSession) args.push('--continue')
   if (prompt) args.push(prompt)
   return args
 }
@@ -140,12 +141,12 @@ export function resolveQwenEntrypoint() {
   return join(dirname(require.resolve('@qwen-code/qwen-code/package.json')), 'cli-entry.js')
 }
 
-export async function launchQwen({ key, model, prompt, mcpConfig, env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
+export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
   // The real API key never enters Qwen, its tools, or any MCP child process.
   // Only this launcher retains it while the ephemeral proxy is running.
   const proxy = await proxyFactory({ key })
   try {
-    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig })]
+    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession })]
     const child = spawnImpl(process.execPath, args, {
       cwd: process.cwd(), env: childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl }),
       stdio: 'inherit', windowsHide: false, shell: false,
