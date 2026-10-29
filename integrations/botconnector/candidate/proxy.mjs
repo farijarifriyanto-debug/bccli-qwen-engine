@@ -62,6 +62,21 @@ export function normalizeZeroArgFunctionTools(requestBody) {
   return changed ? { ...requestBody, tools } : requestBody
 }
 
+// The model can be switched with /model without restarting the coding agent.
+// Annotate each request with the ACTUAL model chosen by Qwen Config, rather
+// than retaining a stale --append-system-prompt model from CLI startup.
+export function attachRuntimeModelContext(payload) {
+  if (!payload || typeof payload !== 'object' || !Array.isArray(payload.messages)) return payload
+  const model = payload.model
+  if (typeof model !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/.test(model)) return payload
+  const index = payload.messages.findIndex(item => item?.role === 'system' && typeof item.content === 'string')
+  if (index === -1) return payload
+  const runtime = '\\n\\nRuntime metadata (not model instructions): active_model_id=' + model + '; client_app=BCCLI; gateway=BotConnector.'
+  const messages = [...payload.messages]
+  messages[index] = { ...messages[index], content: messages[index].content + runtime }
+  return { ...payload, messages }
+}
+
 function waitForDrainOrClose(res) {
   if (res.destroyed) return Promise.resolve()
   return new Promise((resolve) => {
@@ -132,7 +147,7 @@ export async function startGatewayProxy({ key, token = randomBytes(32).toString(
           let parsed
           try { parsed = JSON.parse(body.toString('utf8')) }
           catch { fail(400, 'Invalid JSON request.'); return }
-          const normalized = normalizeZeroArgFunctionTools(parsed)
+          const normalized = attachRuntimeModelContext(normalizeZeroArgFunctionTools(parsed))
           if (normalized !== parsed) body = Buffer.from(JSON.stringify(normalized))
         }
       }
