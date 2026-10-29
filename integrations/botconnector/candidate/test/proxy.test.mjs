@@ -107,3 +107,28 @@ test('proxy sends upstream valid parameterless tools without stripping other too
     assert.deepEqual(seen[0].tools[0], request.tools[0])
   } finally { await proxy.close() }
 })
+
+test('nullable optional read_file fields become single types; required nullable fields stay unchanged', () => {
+  const parameters = {
+    type: 'object',
+    properties: {
+      file_path: { type: 'string' },
+      offset: { type: ['integer', 'null'] },
+      pages: { type: ['null', 'string'] },
+      nested: { type: 'object', properties: { page: { type: ['integer', 'null'] } } },
+      required_nullable: { type: ['string', 'null'] },
+      multi: { type: ['integer', 'string', 'null'] },
+    },
+    required: ['file_path', 'required_nullable'],
+  }
+  const req = { tools: [{ type: 'function', function: { name: 'read_file', parameters } }] }
+  const normalized = normalizeZeroArgFunctionTools(req)
+  const props = normalized.tools[0].function.parameters.properties
+  assert.equal(props.offset.type, 'integer')
+  assert.equal(props.pages.type, 'string')
+  assert.equal(props.nested.properties.page.type, 'integer')
+  assert.deepEqual(props.required_nullable.type, ['string', 'null'])
+  assert.deepEqual(props.multi.type, ['integer', 'string', 'null'])
+  assert.deepEqual(parameters.properties.offset.type, ['integer', 'null'], 'original must be immutable')
+  assert.strictEqual(normalizeZeroArgFunctionTools(normalized), normalized)
+})
