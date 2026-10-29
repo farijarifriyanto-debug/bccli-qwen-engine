@@ -226,7 +226,7 @@ export function patchUiChunk(file, text) {
   }
   if (file === 'chunks/chunk-2PLSL3VQ.js') {
     return replaceOnce(text,
-      "To enable automatic tool execution, use the -y flag (YOLO mode):\\nExample: qwen -p 'your prompt' -y",
+      "To enable automatic tool execution, use the -y flag (YOLO mode):" + String.fromCharCode(10) + "Example: qwen -p 'your prompt' -y",
       "BCCLI requires an interactive approval for this tool. Re-run in interactive mode and approve the tool; unattended auto-approval is disabled.",
       'headless approval warning')
   }
