@@ -55,7 +55,7 @@ export function guardUpstreamProviderCommands(text) {
     {
       command: 'auth',
       detect: 'dialog:"auth"',
-      code: 'var authCommand={name:"auth",altNames:["connect","login"],get description(){return "BotConnector Gateway connection (managed by BCCLI)"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(()=>({type:"message",messageType:"info",content:"Connected through the BotConnector Gateway. BCCLI manages API credentials and upstream routing. To change the BotConnector API key, exit and set BOTCONNECTOR_API_KEY in your terminal. Use the BCCLI launcher models command to view authorized models."}),"action")};',
+      code: 'var authCommand={name:"auth",altNames:["connect","login"],get description(){return "BotConnector Gateway connection (managed by BCCLI)"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(()=>({type:"message",messageType:"info",content:"Connected through the BotConnector Gateway. BCCLI manages API credentials and upstream routing. Use your existing bccli login (bc-cloud), or set BOTCONNECTOR_API_KEY as an override before starting BCCLI. Restart the session after changing credentials. Run the BCCLI launcher models command to list authorized models."}),"action")};',
     },
     {
       command: 'model',
