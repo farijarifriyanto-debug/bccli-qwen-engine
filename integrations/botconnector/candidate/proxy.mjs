@@ -1,5 +1,4 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import { once } from 'node:events'
 import { createServer } from 'node:http'
 import { GATEWAY } from './gateway.mjs'
 
@@ -8,6 +7,19 @@ import { GATEWAY } from './gateway.mjs'
 // local bearer token. The proxy cannot be redirected to arbitrary hosts.
 const ALLOWED_PATHS = new Set(['/v1/models', '/v1/chat/completions', '/v1/responses'])
 const MAX_REQUEST_BYTES = 16 * 1024 * 1024
+
+function waitForDrainOrClose(res) {
+  if (res.destroyed) return Promise.resolve()
+  return new Promise((resolve) => {
+    const done = () => {
+      res.off('drain', done)
+      res.off('close', done)
+      resolve()
+    }
+    res.once('drain', done)
+    res.once('close', done)
+  })
+}
 
 function matchesToken(auth, token) {
   if (typeof auth !== 'string') return false
@@ -80,12 +92,14 @@ export async function startGatewayProxy({ key, token = randomBytes(32).toString(
       })
       if (upstream.body) {
         for await (const chunk of upstream.body) {
-          if (!res.write(chunk)) await once(res, 'drain')
+          if (res.destroyed) break
+          if (!res.write(chunk)) await waitForDrainOrClose(res)
         }
       }
       res.end()
     } catch {
-      fail(502, 'Gateway connection failed.')
+      if (res.headersSent) res.destroy()
+      else fail(502, 'Gateway connection failed.')
     } finally {
       res.off('close', onClose)
     }
