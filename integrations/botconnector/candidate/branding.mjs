@@ -220,10 +220,6 @@ export function patchUiChunk(file, text) {
       'You are Qwen Code, an interactive CLI agent.',
       'You are an AI coding assistant operating in a terminal.',
       'neutral project initialization prompt')
-    result = replaceOnce(result,
-      '`Qwen Code v${systemInfo.cliVersion}`',
-      '`BCCLI (engine v${systemInfo.cliVersion})`',
-      'non-interactive status product label')
     result = guardUpstreamProviderCommands(result)
     return replaceOnce(result,
       'get description(){return t("for help on Qwen Code")}',
