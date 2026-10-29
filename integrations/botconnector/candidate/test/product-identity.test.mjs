@@ -39,15 +39,23 @@ test('BotConnector provider and release commands cannot open upstream menus', ()
     'var authCommand={name:"auth",action:__name(()=>({type:"dialog",dialog:"auth"}),"action")};',
     'var modelCommand={name:"model",action:__name(()=>({type:"dialog",dialog:"model"}),"action")};',
     'var updateCommand={name:"update",description:"Check for Qwen Code updates",action:__name(()=>({type:"message"}),"action")};',
+    'var settingsCommand={name:"settings",action:__name(()=>({type:"dialog",dialog:"settings"}),"action")};',
+    'var aboutCommand={name:"status",action:__name(()=>({type:"message",content:"Qwen Code v"}),"action")};',
+    'var docsCommand={name:"docs",action:__name(()=>({type:"message",content:"https://qwenlm.github.io/qwen-code-docs/en"}),"action")};',
+    'var helpCommand={name:"help",get description(){return t("for help on Qwen Code")},action:__name(()=>({type:"dialog",dialog:"help"}),"action")};',
   ]
   const status = String.fromCharCode(96) + 'Qwen Code v' + String.fromCharCode(36) + '{systemInfo.cliVersion}' + String.fromCharCode(96)
   const branded = patchUiChunk('chunks/chunk-7L4WTOM2.js', [old,intro,...stub,status].join('\\n'))
   assert.ok(branded.includes('github.com/farijarifriyanto-debug/bccli/issues/new'))
   assert.ok(branded.includes('You are an AI coding assistant operating in a terminal.'))
   assert.ok(branded.includes('Connected through the BotConnector Gateway'))
-  assert.ok(branded.includes('Model selection is managed by BotConnector Gateway'))
+  assert.ok(branded.includes('Choose a BotConnector AI model in this session'))
+  assert.ok(branded.includes('config.setModel(item.id'))
   assert.ok(branded.includes('BCCLI release information'))
-  assert.ok(branded.includes('BCCLI (engine v'))
+  assert.ok(branded.includes('BCCLI | BotConnector Settings'))
+  assert.ok(branded.includes('Show BCCLI and BotConnector session diagnostics'))
+  assert.ok(branded.includes('BCCLI documentation and releases'))
+  assert.ok(branded.includes('BCCLI help and keyboard shortcuts'))
   assert.ok(!branded.includes('dialog:"auth"'))
   assert.ok(!branded.includes('dialog:"model"'))
   assert.ok(!branded.includes('Check for Qwen Code updates'))
