@@ -53,9 +53,11 @@ test('child strips inherited competing provider keys', () => {
   const env = childEnvironment({
     PATH: 'test-path', QWEN_OAUTH: '1', ANTHROPIC_API_KEY: 'old-secret',
     OPENAI_BASE_URL: 'https://evil.example/v1', OPENAI_API_KEY: 'wrong-key',
+    BOTCONNECTOR_API_KEY: 'should-not-inherit',
   }, 'test-secret', 'model-1', { home: '/tmp/bccli-qwen-candidate' })
   assert.equal(env.PATH, 'test-path')
   assert.equal(env.QWEN_OAUTH, undefined)
+  assert.equal(env.BOTCONNECTOR_API_KEY, undefined)
   assert.equal(env.ANTHROPIC_API_KEY, undefined)
   assert.equal(env.OPENAI_API_KEY, 'test-secret')
   assert.equal(env.OPENAI_BASE_URL, GATEWAY)
