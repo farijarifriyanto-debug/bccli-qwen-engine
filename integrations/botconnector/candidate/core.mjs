@@ -2,7 +2,8 @@
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { readFileSync, realpathSync, lstatSync } from 'node:fs'
+import { dirname, join, isAbsolute } from 'node:path'
 import { startGatewayProxy } from './proxy.mjs'
 
 export const GATEWAY = 'https://api.botconnector.id/v1'
@@ -12,7 +13,7 @@ const ALLOWED = new Set(['models', 'run', 'chat'])
 export function parseArgs(argv) {
   const args = [...argv]
   const command = ALLOWED.has(args[0]) ? args.shift() : 'chat'
-  let model, json = false
+  let model, mcpConfig, json = false
   const prompt = []
   while (args.length) {
     const arg = args.shift()
@@ -21,13 +22,18 @@ export function parseArgs(argv) {
       model = args.shift()
       continue
     }
+    if (arg === '--mcp-config') {
+      if (mcpConfig !== undefined || !args.length || args[0].startsWith('-')) throw Error('--mcp-config requires exactly one absolute path.')
+      mcpConfig = args.shift()
+      continue
+    }
     if (arg === '--json' && command === 'models') { json = true; continue }
     if (arg.startsWith('-')) throw Error('Unsupported option. POC intentionally blocks passthrough flags.')
     prompt.push(arg)
   }
-  if (command === 'models' && (model || prompt.length)) throw Error('Use: models [--json].')
+  if (command === 'models' && (model || mcpConfig || prompt.length)) throw Error('Use: models [--json].')
   if (command === 'run' && !prompt.length) throw Error('Use: run --model MODEL "prompt".')
-  return { command, model, json, prompt: prompt.join(' ') }
+  return { command, model, json, prompt: prompt.join(' '), ...(mcpConfig ? { mcpConfig } : {}) }
 }
 
 export async function discoverModels({ key, fetchImpl = fetch, endpoint = GATEWAY }) {
@@ -65,7 +71,7 @@ export function selectModel(models, value) {
   return value
 }
 
-export function qwenArguments(model, prompt, endpoint = GATEWAY) {
+export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig } = {}) {
   // --bare is security critical: project settings may otherwise override
   // the provider baseUrl, forwarding an API key to an attacker-controlled endpoint.
   const args = [
@@ -74,6 +80,7 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY) {
     '--model', model, '--approval-mode', 'default',
     '--telemetry=false',
   ]
+  if (mcpConfig) args.push('--mcp-config', mcpConfig)
   if (prompt) args.push(prompt)
   return args
 }
@@ -95,17 +102,48 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home } 
   return env
 }
 
+// Explicit MCP servers run local commands on startup, so they must originate
+// from a config file the user deliberately placed outside any cloned project.
+// There is no automatic project/user MCP discovery when Qwen runs --bare.
+export function resolveTrustedMcpConfig(input, { home = join(homedir(), '.bccli-qwen-candidate') } = {}) {
+  if (!input) return undefined
+  if (!isAbsolute(input)) throw Error('MCP config must use an absolute path.')
+  let realHome, file, stats
+  try {
+    realHome = realpathSync(home)
+    file = realpathSync(input)
+    stats = lstatSync(input)
+  } catch {
+    throw Error('MCP config must be a readable file in the owner config directory.')
+  }
+  if (stats.isSymbolicLink() || !stats.isFile() || dirname(file) !== realHome) {
+    throw Error('MCP config must be a regular file directly in the owner config directory.')
+  }
+  let config
+  try { config = JSON.parse(readFileSync(file, 'utf8')) }
+  catch { throw Error('MCP config must contain valid JSON.') }
+  if (!config || typeof config !== 'object' || Array.isArray(config) ||
+    !config.mcpServers || typeof config.mcpServers !== 'object' || Array.isArray(config.mcpServers)) {
+    throw Error('MCP config must contain mcpServers.')
+  }
+  if (Object.keys(config).some((name) => name !== 'mcpServers')) {
+    throw Error('MCP config may contain only mcpServers (no provider or credential overrides).')
+  }
+  if (!Object.keys(config.mcpServers).length) throw Error('MCP config must define at least one server.')
+  return file
+}
+
 export function resolveQwenEntrypoint() {
   const require = createRequire(import.meta.url)
   return join(dirname(require.resolve('@qwen-code/qwen-code/package.json')), 'cli-entry.js')
 }
 
-export async function launchQwen({ key, model, prompt, env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
+export async function launchQwen({ key, model, prompt, mcpConfig, env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
   // The real API key never enters Qwen, its tools, or any MCP child process.
   // Only this launcher retains it while the ephemeral proxy is running.
   const proxy = await proxyFactory({ key })
   try {
-    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl)]
+    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig })]
     const child = spawnImpl(process.execPath, args, {
       cwd: process.cwd(), env: childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl }),
       stdio: 'inherit', windowsHide: false, shell: false,
