@@ -7,7 +7,8 @@ function help() {
     'Usage:',
     '  bccli-qwen-candidate models [--json]',
     '  bccli-qwen-candidate run --model MODEL "prompt" [--mcp-config OWNER_CONFIG_PATH]',
-    '  bccli-qwen-candidate chat --model MODEL [--mcp-config OWNER_CONFIG_PATH]',
+    '  bccli-qwen-candidate chat [--model MODEL] [--mcp-config OWNER_CONFIG_PATH]',
+    '  bccli-qwen-candidate resume [--model MODEL] [prompt] (native Qwen --continue)',
     '',
     'Credentials: set BOTCONNECTOR_API_KEY securely in your process environment.',
     'Model choice: --model, BOTCONNECTOR_MODEL_ID, otherwise ling-3.0-flash (must exist in Gateway /models).',
@@ -32,7 +33,7 @@ async function main() {
   const model = selectModel(models, args.model ?? process.env.BOTCONNECTOR_MODEL_ID ?? DEFAULT_MODEL)
   if (!args.prompt && !process.stdin.isTTY) throw Error('Interactive mode requires a TTY; use run "prompt".')
   const mcpConfig = resolveTrustedMcpConfig(args.mcpConfig)
-  return launchQwen({ key, model, prompt: args.prompt, mcpConfig })
+  return launchQwen({ key, model, prompt: args.prompt, mcpConfig, continueSession: args.command === 'resume' })
 }
 
 main().then((code) => { process.exitCode = code }, (error) => {
