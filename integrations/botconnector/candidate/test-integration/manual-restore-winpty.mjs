@@ -19,6 +19,7 @@ const file=join(root,'test.txt')
 const original=['one','two','three','four','status=awal','six','seven','eight','nine'].join('\n')+'\n'
 fs.writeFileSync(file,original)
 let requests=0
+let sawEdited=false
 const chunk=(model,delta,reason)=>'data: '+JSON.stringify({id:'mock',object:'chat.completion.chunk',created:1,model,choices:[{index:0,delta,finish_reason:reason}]})+'\n\n'
 const proxy=await startGatewayProxy({key:'FAKE_ONLY',fetchImpl:async(url,init)=>{
  const body=JSON.parse(init.body.toString())
@@ -47,7 +48,7 @@ setTimeout(()=>{if(!ended){console.log('SEND_CONFIRM_RESTORE');child.write('\r')
 setTimeout(()=>{if(!ended){const match=snapshot().match(/Available tool calls to restore:\s*(\S+)/); if(match){console.log('RESTORE_ID='+match[1]);child.write('/restore '+match[1]+'\r')}else{console.log('RESTORE_ID_MISSING')}}},25500)
 setTimeout(()=>{if(!ended){console.log('SEND_RESTORE_ID_CONFIRM');child.write('\r')}},28400)
 for(const [t,label] of [[6500,'FIRST'],[11000,'SECOND'],[17800,'THIRD'],[24000,'FOURTH'],[31500,'FIFTH'],[35500,'SIXTH']]){
- setTimeout(()=>{console.log('SCREEN_'+label+'='+JSON.stringify(snapshot()));console.log('FILE_'+label+'='+fs.readFileSync(file,'utf8').trim())},t)
+ setTimeout(()=>{const current=fs.readFileSync(file,'utf8');if(label==='SECOND')sawEdited=current.includes('status=berhasil');if(label==='SIXTH'){const restored=current===original;console.log('RESTORE_ASSERT='+JSON.stringify({sawEdited,restored}));if(!sawEdited||!restored)process.exitCode=1;}console.log('SCREEN_'+label+'='+JSON.stringify(snapshot()));console.log('FILE_'+label+'='+current.trim())},t)
 }
 setTimeout(()=>{if(!ended){child.kill();console.log('TERMINATED_NO_CLEANUP')}},39000)
 setTimeout(()=>{proxy.close().catch(()=>{});fs.rmSync(root,{force:true,recursive:true})},42500)
