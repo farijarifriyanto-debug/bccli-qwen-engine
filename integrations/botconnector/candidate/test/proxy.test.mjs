@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { startGatewayProxy } from '../proxy.mjs'
+import { normalizeZeroArgFunctionTools, startGatewayProxy } from '../proxy.mjs'
 import { GATEWAY } from '../core.mjs'
 
 test('proxy keeps real key upstream; Qwen gets an expiring local token', async () => {
@@ -58,5 +58,52 @@ test('proxy never follows upstream redirects or exposes upstream error details',
     assert.equal(result.status, 502)
     assert.doesNotMatch(await result.text(), /UPSTREAM_SECRET_RESPONSE_SHOULD_NOT_APPEAR/)
     assert.equal(redirectOption, 'error')
+  } finally { await proxy.close() }
+})
+
+test('normalizes only missing/nullable parameters on zero-argument functions', () => {
+  const withSchema = { type: 'function', function: { name: 'edit', parameters: { type: 'object', properties: { file_path: { type: 'string' } } } } }
+  const noSchema = { type: 'function', function: { name: 'get_goal', description: 'Read goal' } }
+  const unknown = { type: 'other', name: 'native_tool' }
+  const original = { model: 'agnes-3.0-flash', messages: [{ role: 'user', content: 'hi' }], tools: [withSchema, noSchema, unknown] }
+  const updated = normalizeZeroArgFunctionTools(original)
+  assert.notEqual(updated, original)
+  assert.deepEqual(updated.tools[0], withSchema)
+  assert.deepEqual(updated.tools[1], {
+    type: 'function', function: { name: 'get_goal', description: 'Read goal', parameters: { type: 'object', properties: {} } },
+  })
+  assert.deepEqual(updated.tools[2], unknown)
+  assert.equal(Object.hasOwn(original.tools[1].function, 'parameters'), false, 'must not mutate caller')
+  assert.strictEqual(normalizeZeroArgFunctionTools(updated), updated, 'must be idempotent')
+})
+
+test('proxy sends upstream valid parameterless tools without stripping other tools', async () => {
+  const seen = []
+  const proxy = await startGatewayProxy({
+    key: 'fake-real-key', token: 'fake-local-token',
+    fetchImpl: async (_url, options) => {
+      const body = JSON.parse(options.body.toString())
+      seen.push(body)
+      const target = body.tools[1]?.function
+      if (!target?.parameters || target.parameters.type !== 'object') {
+        return new Response(JSON.stringify({ error: { message: "Invalid request body, Failed to parse '.tools[1]'" } }), { status: 400 })
+      }
+      return new Response('data: [DONE]\\n\\n', { status: 200, headers: { 'content-type': 'text/event-stream' } })
+    },
+  })
+  try {
+    const request = { model: 'agnes-3.0-flash', stream: true, messages: [{ role: 'user', content: 'Hello' }],
+      tools: [
+        { type: 'function', function: { name: 'edit', parameters: { type: 'object', properties: { file: { type: 'string' } } } } },
+        { type: 'function', function: { name: 'get_goal', description: 'No arguments needed' } },
+      ],
+    }
+    const result = await fetch(proxy.baseUrl + '/chat/completions', {
+      method: 'POST', headers: { authorization: 'Bearer fake-local-token', 'content-type': 'application/json' }, body: JSON.stringify(request),
+    })
+    assert.equal(result.status, 200)
+    assert.equal(seen[0].tools.length, 2, 'keep coding tools enabled')
+    assert.deepEqual(seen[0].tools[1].function.parameters, { type: 'object', properties: {} })
+    assert.deepEqual(seen[0].tools[0], request.tools[0])
   } finally { await proxy.close() }
 })
