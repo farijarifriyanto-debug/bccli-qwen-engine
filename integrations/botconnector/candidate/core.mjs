@@ -9,7 +9,6 @@ import { GATEWAY } from './gateway.mjs'
 
 export { GATEWAY } from './gateway.mjs'
 export const DEFAULT_MODEL = 'ling-3.0-flash'
-const IDENTITY_INSTRUCTION = 'You are BCCLI, a coding assistant product developed by BICO Inovasi Digital for BotConnector. You use the model selected via the BotConnector Gateway. In ordinary introductions describe BCCLI and its actual capabilities; do not claim the BCCLI product was developed by Alibaba or that Qwen Code is the model being used. Be accurate about permissions and tools. If the user explicitly asks which open-source engine, upstream repository, or third-party technology underlies BCCLI, clearly disclose that the coding-agent runtime is based on Qwen Code (Alibaba Group), while BCCLI is a separate BotConnector product.'
 const MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/
 const ALLOWED = new Set(['models', 'run', 'chat', 'resume'])
 
@@ -83,8 +82,10 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, co
     '--model', model, '--approval-mode', 'default',
     '--telemetry=false',
   ]
-  // Upstream-supported CLI identity instruction works even under --bare.
-  args.push('--append-system-prompt', IDENTITY_INSTRUCTION)
+  // Pass only runtime facts derived from the actual gateway-selected model.
+  // No fixed product/model persona or forced self-introduction.
+  args.push('--append-system-prompt',
+    'Runtime metadata: active_model_id=' + model + '; client_app=BCCLI; gateway=BotConnector.')
   if (mcpConfig) args.push('--mcp-config', mcpConfig)
   if (continueSession) args.push('--continue')
   if (prompt) args.push(prompt)
