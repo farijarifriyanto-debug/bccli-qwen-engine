@@ -57,23 +57,3 @@ test('unsupported upstream syntax fails closed instead of reverting branding', (
     assert.throws(() => patchUiChunk(chunk, 'upstream changed'), /unsupported/)
   }
 })
- + '{systemInfo.cliVersion}`',
-  ].join('\\n')
-  const branded = patchUiChunk('chunks/chunk-7L4WTOM2.js', old + '\\n' + intro + '\\n' + commands)
-  assert.ok(!branded.includes('dialog:"auth"'))
-  assert.ok(!branded.includes('dialog:"model"'))
-  assert.ok(branded.includes('Connected through the BotConnector Gateway'))
-  assert.ok(branded.includes('BCCLI release information'))
-  assert.ok(branded.includes('BCCLI (engine v'))
-  assert.match(branded, /github\.com\/farijarifriyanto-debug\/bccli\/issues\/new/)
-  assert.match(branded, /You are an AI coding assistant operating in a terminal/)
-  assert.ok(!branded.includes('github.com/QwenLM'))
-  assert.ok(!branded.includes('You are Qwen Code'))
-  assert.ok(!branded.includes('You are BCCLI'))
-})
-
-test('unsupported upstream syntax fails closed instead of reverting branding', () => {
-  for (const chunk of ['chunks/chunk-OV3EBH6J.js','chunks/chunk-W3YCOEIP.js','chunks/chunk-7L4WTOM2.js']) {
-    assert.throws(() => patchUiChunk(chunk, 'upstream changed'), /unsupported/)
-  }
-})
