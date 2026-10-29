@@ -28,6 +28,7 @@ test('BCCLI branded runtime keeps upstream tool protocol, bare mode and token is
       assert.equal(body.model, 'ling-3.0-flash')
       assert.ok(body.tools?.length >= 2, 'all coding tools remain enabled')
       assert.ok(body.messages?.[0]?.role === 'system')
+      assert.ok(JSON.stringify(body.messages?.[0]).includes('You are BCCLI'), 'model-facing identity must use BCCLI')
       received++
       const chunk = (delta, finish_reason) => JSON.stringify({
         id:'mock-brand',object:'chat.completion.chunk',created:1,model:body.model,
