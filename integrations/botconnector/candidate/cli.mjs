@@ -1,14 +1,15 @@
 #!/usr/bin/env node
-import { DEFAULT_MODEL, discoverModels, launchQwen, parseArgs, resolveTrustedMcpConfig, selectModel } from './core.mjs'
+import { DEFAULT_MODEL, discoverModels, launchQwen, parseArgs, resolveQwenEntrypoint, resolveTrustedMcpConfig, selectModel } from './core.mjs'
+import { prepareBrandedQwen } from './branding.mjs'
 
 function help() {
   console.log([
-    'BCCLI Qwen Candidate — isolated upstream-first prototype',
+    'BCCLI | BotConnector — isolated coding agent candidate',
     'Usage:',
     '  bccli-qwen-candidate models [--json]',
     '  bccli-qwen-candidate run --model MODEL "prompt" [--mcp-config OWNER_CONFIG_PATH]',
     '  bccli-qwen-candidate chat [--model MODEL] [--mcp-config OWNER_CONFIG_PATH]',
-    '  bccli-qwen-candidate resume [--model MODEL] [prompt] (native Qwen --continue)',
+    '  bccli-qwen-candidate resume [--model MODEL] [prompt]',
     '',
     'Credentials: set BOTCONNECTOR_API_KEY securely in your process environment.',
     'Model choice: --model, BOTCONNECTOR_MODEL_ID, otherwise ling-3.0-flash (must exist in Gateway /models).',
@@ -33,7 +34,8 @@ async function main() {
   const model = selectModel(models, args.model ?? process.env.BOTCONNECTOR_MODEL_ID ?? DEFAULT_MODEL)
   if (!args.prompt && !process.stdin.isTTY) throw Error('Interactive mode requires a TTY; use run "prompt".')
   const mcpConfig = resolveTrustedMcpConfig(args.mcpConfig)
-  return launchQwen({ key, model, prompt: args.prompt, mcpConfig, continueSession: args.command === 'resume' })
+  const entrypoint = prepareBrandedQwen(resolveQwenEntrypoint())
+  return launchQwen({ key, model, prompt: args.prompt, mcpConfig, entrypoint, continueSession: args.command === 'resume' })
 }
 
 main().then((code) => { process.exitCode = code }, (error) => {
