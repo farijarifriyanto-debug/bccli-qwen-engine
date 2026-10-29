@@ -138,3 +138,20 @@ Set-Location (Join-Path $root 'candidate')
 **Billing:** Read-only Account API logs for Ling showed `novita:ling-3.0-flash` request/tool-message routing, but the log lines alone do not establish account ledger reconciliation. Token/cost settlement, quota, cache, and possible project privacy behavior remain release blockers. No production settings or published `@botconnector/bccli` package changed.
 
 **No-Go:** Keep this PR draft until Node compatibility, real interactive approvals, `/restore`, persisted-session privacy, MCP/tool integrations, and wallet/usage reconciliation are tested and explicitly approved.
+
+
+## 2026-10-29 — Production Ling usage reconciliation and interactive checkpoint restore
+
+**Read-only production accounting, not a write or charge test.** Five Ling request IDs from the user's acceptance session (2026-10-29 13:25:06–13:25:55 UTC) were matched against `cloud_usage_events` and `cloud_request_telemetry`. All five had `success` status through `novita:ling-3.0-flash`. Totals: **7,983 input tokens + 1,306 output tokens = 9,289 total tokens**. They belong to one account (counted without displaying the user ID).
+
+The five request IDs have **no matching PAYG reservations or ledger entries**. For that same account, `api_billing_ledger` had **zero rows in the narrower acceptance window 13:20–13:35 UTC**. Therefore, there is no evidence of a PAYG wallet debit for those requests in this database/window. Do **not** describe provider procurement cost as USD 0: `cost` is null and `provider_cost_micros` is 0 on the corresponding usage rows, which does **not** prove an actual provider cost. Plan/free quota deduction and retail settlement outside this observed path require separate validation before commercial release.
+
+**Interactive checkpoint restore proof (fake gateway, isolated Windows temp project):**
+1. Qwen Code 0.26.3 with `--bare` and default approvals generated a readable diff (`status=awal` → `status=berhasil`), displayed **Yes, allow once**, and edited `test.txt` only after the approval was simulated.
+2. Native `/restore` listed an actual `*-test.txt-edit` checkpoint.
+3. Executing `/restore <checkpoint-id>` returned the file to **`status=awal`**.
+4. Native Qwen attempted tool replay and **requested edit approval again**. No second approval was provided; the file remained restored.
+
+Probe was run with Node 22.23.4 and Qwen's bundled WinPTY dependency with `useConpty:false` (the default ConPTY agent cannot attach to this remote terminal). The external PTY helper can report an `AttachConsole` error when forcibly closed; this is separate from the successful file-content assertion. A Windows-only manual regression script is saved under `candidate/test-integration/manual-restore-winpty.mjs`. It uses only fake tokens, a localhost mock and temporary files; it is intentionally **not** part of routine `npm test`, which stays stable on Node 24.
+
+**Remaining release gates:** cross-runtime Node compatibility, authorized live MCP and subagent acceptance, explicit plan/quota reconciliation and actual provider invoicing, session-retention privacy, installer-free npm migration/rollback. Keep current `@botconnector/bccli` release unchanged. The candidate PR stays draft.
