@@ -17,9 +17,20 @@ test('real Qwen 0.26.3 tools reach strict upstream with valid get_goal parameter
       assert.equal(options.headers.authorization, 'Bearer MOCK_ONLY_REAL_KEY')
       const body = JSON.parse(options.body.toString())
       const goal = body.tools?.find((tool) => tool.function?.name === 'get_goal')
-      seen.push({ toolCount: body.tools?.length, goal })
-      if (!goal?.function?.parameters || goal.function.parameters.type !== 'object') {
-        return new Response(JSON.stringify({ error: { message: "Invalid request body, Failed to parse '.tools[1]'" } }), {
+      const readFile = body.tools?.find((tool) => tool.function?.name === 'read_file')
+      seen.push({ toolCount: body.tools?.length, goal, readFile })
+      // Mirror strict schema validation: the first rejected tool was get_goal,
+      // the next provider rejection was the read_file nullable type union.
+      const typeUnions = (value) => {
+        if (!value || typeof value !== 'object') return false
+        if (Array.isArray(value.type)) return true
+        return Object.entries(value).some(([k, v]) => k !== 'enum' && (
+          Array.isArray(v) ? v.some(typeUnions) : typeUnions(v)
+        ))
+      }
+      if (!goal?.function?.parameters || goal.function.parameters.type !== 'object'
+          || body.tools.some((tool) => typeUnions(tool.function?.parameters))) {
+        return new Response(JSON.stringify({ error: { message: "Invalid request body, Failed to parse tool schema" } }), {
           status: 400, headers: { 'content-type': 'application/json' },
         })
       }
@@ -54,6 +65,10 @@ test('real Qwen 0.26.3 tools reach strict upstream with valid get_goal parameter
     assert.equal(seen.length, 1)
     assert.ok(seen[0].toolCount >= 2, 'Qwen coding tools must remain enabled')
     assert.deepEqual(seen[0].goal.function.parameters, { type: 'object', properties: {} })
+    assert.ok(seen[0].readFile, 'read_file must remain available')
+    assert.equal(seen[0].readFile.function.parameters.properties.offset.type, 'integer')
+    assert.equal(seen[0].readFile.function.parameters.properties.limit.type, 'integer')
+    assert.equal(seen[0].readFile.function.parameters.properties.pages.type, 'string')
   } finally {
     await proxy.close()
     fs.rmSync(root, { recursive: true, force: true })
