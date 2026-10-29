@@ -5,8 +5,9 @@ import { homedir } from 'node:os'
 import { readFileSync, realpathSync, lstatSync } from 'node:fs'
 import { dirname, join, isAbsolute } from 'node:path'
 import { startGatewayProxy } from './proxy.mjs'
+import { GATEWAY } from './gateway.mjs'
 
-export const GATEWAY = 'https://api.botconnector.id/v1'
+export { GATEWAY } from './gateway.mjs'
 const MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/
 const ALLOWED = new Set(['models', 'run', 'chat'])
 
