@@ -134,10 +134,14 @@ export function patchUiChunk(file, text) {
       'addField("Qwen Code",cliVersion',
       'addField("BCCLI engine",cliVersion',
       'OpenTUI diagnostic label')
-    return replaceExactly(result,
+    result = replaceOnce(result,
       'To continue this session, run qwen --resume ${stats.sessionId}',
-      'To resume, run the BCCLI candidate resume command from the same project directory', 2,
-      'OpenTUI session-exit commands')
+      'To resume, run the BCCLI candidate resume command from this project folder',
+      'OpenTUI project-quit resume command')
+    return replaceOnce(result,
+      'qwen --resume ${sessionId}',
+      'BCCLI candidate resume',
+      'OpenTUI transcript resume command')
   }
   if (file === 'chunks/chunk-QUFSNRKR.js') {
     return replaceOnce(text,
