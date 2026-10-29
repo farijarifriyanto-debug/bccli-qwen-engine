@@ -9,8 +9,14 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-OYUATJK2.js': '3fa61c12bc1cba19d70151381519be337b99e2e60dac8edf6d066107a8419a1d',
   'chunks/startInteractiveUI-CECFAXVK.js': 'd9acfeb1105032c9edccf223acfc6a8384256099883303c1622b12d92eea0b83',
   'chunks/start-opentui-ui-Q34XCEMN.js': 'e5a8d1ff1ce494f6df26b03023daf2b930cb093ebfbfbcf9e2bcd3b349e6f107',
+  'chunks/chunk-OV3EBH6J.js': '3b20ea65e93e6ee00625f9d86906c3d28c45529b4b4dbe72dc050bdae3904505',
+  'chunks/chunk-W3YCOEIP.js': '02828393f6e477a7f36cecff876a6af2d36ece3eb838fceb096d9245eb7fc5f7',
+  'chunks/chunk-7L4WTOM2.js': '4d8053c956cc7881b7f87ae2c0e96bf1adc942a37ac37de3d76eaeb9367041fc',
 })
-const BRAND_REVISION = 'bccli-white-label-20261029-v1'
+const BRAND_REVISION = 'bccli-white-label-20261029-v2'
+// Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
+// coding CLI uses a distinct teal→green→amber palette in dark/light themes.
+export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
 const BCCLI_ASCII = [
   '',
   '██████╗  ██████╗  ██████╗██╗     ██╗',
@@ -23,6 +29,13 @@ const BCCLI_ASCII = [
 ].join('\n')
 
 const digest = (value) => createHash('sha256').update(value).digest('hex')
+
+function replaceExactly(text, oldValue, newValue, expectedCount, label) {
+  if (text.split(oldValue).length - 1 !== expectedCount) {
+    throw Error('BCCLI branding unsupported by installed engine: ' + label)
+  }
+  return text.split(oldValue).join(newValue)
+}
 
 function replaceOnce(text, oldValue, newValue, label) {
   if (text.split(oldValue).length !== 2) {
@@ -57,10 +70,45 @@ export function patchUiChunk(file, text) {
     )
   }
   if (file === 'chunks/start-opentui-ui-Q34XCEMN.js') {
-    return replaceOnce(
+    let result = replaceOnce(
       text, 'custom.title??">_ Qwen Code"', 'custom.title??">_ BCCLI | BotConnector"',
       'OpenTUI banner title',
     )
+    result = replaceOnce(result,
+      'var DEFAULT_GRADIENT=["#4796E4","#847ACE","#C3677F"]',
+      'var DEFAULT_GRADIENT='+JSON.stringify(BCCLI_COLORS),
+      'OpenTUI default gradient')
+    return replaceOnce(result,
+      'addField("Qwen Code",cliVersion',
+      'addField("BCCLI engine",cliVersion',
+      'OpenTUI diagnostic label')
+  }
+  if (file === 'chunks/chunk-OV3EBH6J.js') {
+    return replaceOnce(text,
+      'You are Qwen Code, ${role} developed by Alibaba Group, ${focus}.',
+      'You are BCCLI, ${role} developed by BICO Inovasi Digital for BotConnector, ${focus}.',
+      'core agent identity')
+  }
+  if (file === 'chunks/chunk-W3YCOEIP.js') {
+    let result = replaceExactly(
+      text,
+      'GradientColors:["#4796E4","#847ACE","#C3677F"]',
+      'GradientColors:'+JSON.stringify(BCCLI_COLORS), 2,
+      'Ink light/dark gradient')
+    result = replaceOnce(result,'AccentPurple:"#8B5CF6"','AccentPurple:"#047857"','light brand accent')
+    result = replaceOnce(result,'AccentPurple:"#CBA6F7"','AccentPurple:"#34D399"','dark brand accent')
+    result = replaceOnce(result,'AccentBlue:"#3B82F6"','AccentBlue:"#0891B2"','light focus blue')
+    return replaceOnce(result,'AccentBlue:"#89B4FA"','AccentBlue:"#22D3EE"','dark focus cyan')
+  }
+  if (file === 'chunks/chunk-7L4WTOM2.js') {
+    let result = replaceOnce(text,
+      'https://github.com/QwenLM/qwen-code/issues/new?template=bug_report.yml&title={title}&info={info}',
+      'https://github.com/farijarifriyanto-debug/bccli/issues/new?title={title}&body={info}',
+      'user-facing /bug report link')
+    return replaceOnce(result,
+      'You are Qwen Code, an interactive CLI agent.',
+      'You are BCCLI, the BotConnector interactive coding agent.',
+      'user-facing project initialization prompt')
   }
   throw Error('Unrecognized BCCLI branding file.')
 }
