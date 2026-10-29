@@ -5,7 +5,9 @@ import { BCCLI_COLORS, patchUiChunk } from '../branding.mjs'
 test('core coding role is neutral without forcing product or vendor identity', () => {
   const original = 'You are Qwen Code, $'+'{role} developed by Alibaba Group, $'+'{focus}. Your primary goal is to help users safely and efficiently, adhering strictly to the following instructions and utilizing your available tools.'
   const branded = patchUiChunk('chunks/chunk-OV3EBH6J.js', original)
-  assert.ok(branded.includes('You are an AI coding assistant, 
+  assert.ok(branded.includes('You are an AI coding assistant, $'+'{role}, $'+'{focus}.'))
+  assert.ok(!branded.includes('You are BCCLI'))
+  assert.ok(!branded.includes('BICO Inovasi Digital'))
   assert.ok(!branded.includes('developed by Alibaba Group'))
   assert.match(branded, /primary goal is to help users safely and efficiently/)
 })
