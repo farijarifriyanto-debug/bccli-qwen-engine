@@ -339,3 +339,23 @@ cd "$env:TEMP\bccli-qwen-tooltest"
 ```
 
 **RELEASE HOLD:** no npm publication, no production deployment, no replacement of existing BCCLI, and no PR merge. Still outstanding: product-wide noninteractive command parity, extended settings/diagnostic verification, Node24 shutdown issue, account/plan billing reconciliation, and privacy/retention policy.
+
+
+## 2026-10-30 — real BotConnector account live acceptance
+
+Owner authorized live Gateway testing. On the owner's Windows machine the **isolated candidate** used the existing saved `bccli login` credential without extracting or displaying the API key. No global package, production config or VPS deployment was changed.
+
+### Live evidence (not a fake Gateway)
+
+1. `models` returned authorized `ling-3.0-flash`, `glm-5.3-flash`, `kimi-k2.7-code` (and others) from `https://api.botconnector.id/v1/models`.
+2. Initial `/model kimi-k2.7-code` switched the TUI model, but its real inference failed HTTP 400. Read-only production upstream logs: `canonical=openrouter:kimi-k2.7-code`, `max_tokens=64000`, message **"The model has no bounded output limit."** This is a real Gateway/upstream route incompatibility, not a TUI picker failure.
+3. `glm-5.3-flash` initially failed HTTP 400 with `canonical=deepinfra:glm-5.3-flash`, `max_tokens=64000`, **"max_tokens exceeds the model limit."** Qwen 0.26.3 sends 64K output tokens by default for these routes.
+4. **Candidate-only compatibility fix:** `boundChatOutputTokens()` caps only excessive `max_tokens` to 4096 before forwarding; it never raises smaller requested limits, modifies tools, changes the model ID, or alters the input context. Added tests for cap and preservation. Rebuilt candidate with **36/36 unit tests PASS** and fresh isolated npm install `%TEMP%\bccli-qwen-live-fix-install-20261030`, tarball SHA256 `89623FF217F5C4B90ECB35E3BC80E55F7C04DBB636B8C447F8FA56E3F4A3AA30`.
+5. Real `run --model glm-5.3-flash "Balas satu kata saja: MERAH"` responded **MERAH**, exit 0.
+6. **Actual same-terminal hot switch E2E, Windows Node22 PTY**: started `ling-3.0-flash` → `/model glm-5.3-flash` returned successful switch → prompt `Balas satu kata saja: BIRU` produced distinct AI reply **◆︎ BIRU** (not merely user prompt echo) → `/model ling-3.0-flash` returned successful switch → prompt `Balas satu kata saja: UNGU` produced distinct AI reply **◆︎ UNGU**. No API errors. This proves both directions and actual Gateway inference in one session.
+7. Real `run --model ling-3.0-flash` asked the agent to call `read_file` on the local `test.txt` without modifications; reply included actual `status=berhasil` file content, exit 0. This confirms a read-only file tool path, not write/edit permissions.
+8. `kimi-k2.7-code` **still fails** after capping to 4096, with the same upstream `openrouter:kimi-k2.7-code` "no bounded output limit" HTTP 400. Needs a separate Gateway/provider-route correction or exclusion; **do not mark Kimi as compatible**.
+
+### Release state
+
+**Live acceptance PASS for Ling↔GLM session switching, authenticated catalog, GLM/Ling responses and read-only file tool.** Kimi route FAIL, upstream. The new candidate is still private, not published/merged, and the existing global BCCLI remains untouched. Prior production gates (privacy/retention, full diagnostic parity, Node24 shutdown, plan billing reconciliation) remain; do not imply production release.
