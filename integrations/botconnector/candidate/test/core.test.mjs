@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import test from 'node:test'
-import { childEnvironment, discoverModels, GATEWAY, launchQwen, parseArgs, qwenArguments, selectModel } from '../core.mjs'
+import { DEFAULT_MODEL, childEnvironment, discoverModels, GATEWAY, launchQwen, parseArgs, qwenArguments, selectModel } from '../core.mjs'
 
 test('accepts only deliberately supported commands and flags', () => {
   assert.deepEqual(parseArgs(['models', '--json']), { command: 'models', model: undefined, json: true, prompt: '' })
@@ -93,4 +93,11 @@ test('launcher spawns upstream node script directly without shell', async () => 
   assert.equal(captured.options.env.OPENAI_API_KEY, 'short-lived-session-token')
   assert.equal(captured.options.env.BOTCONNECTOR_API_KEY, undefined)
   assert.ok(closed, 'loopback proxy must be disposed on child exit')
+})
+
+test('Ling default is explicit and never falls back to another model', () => {
+  assert.equal(DEFAULT_MODEL, 'ling-3.0-flash')
+  assert.equal(selectModel([{ id: DEFAULT_MODEL }], DEFAULT_MODEL), DEFAULT_MODEL)
+  assert.throws(() => selectModel([{ id: 'another-model' }], DEFAULT_MODEL), /not available/)
+  assert.equal(selectModel([{ id: DEFAULT_MODEL }, { id: 'other-model' }], 'other-model'), 'other-model')
 })
