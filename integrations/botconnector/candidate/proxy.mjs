@@ -84,8 +84,27 @@ export function attachRuntimeModelContext(payload) {
 const DEFAULT_OUTPUT_TOKEN_CEILING = 4096
 export function boundChatOutputTokens(payload) {
   if (!payload || typeof payload !== 'object') return payload
-  if (!Number.isInteger(payload.max_tokens) || payload.max_tokens <= DEFAULT_OUTPUT_TOKEN_CEILING) return payload
-  return { ...payload, max_tokens: DEFAULT_OUTPUT_TOKEN_CEILING }
+  const legacy = payload.max_tokens
+  const modern = payload.max_completion_tokens
+  const valid = (value) => Number.isInteger(value) && value > 0
+
+  // Real BotConnector Gateway can infer Kimi K2.7 Code when the caller uses
+  // max_completion_tokens, but the same route rejects max_tokens with HTTP
+  // 400 "The model has no bounded output limit." Proven with 32-token
+  // no-tools live requests on 2026-10-30. This compatibility translation is
+  // intentionally exact-model only, not a global rewrite for other providers.
+  if (payload.model === 'kimi-k2.7-code' && valid(legacy)) {
+    const requested = valid(modern) ? Math.min(legacy, modern) : legacy
+    const { max_tokens: _ignored, ...rest } = payload
+    return { ...rest, max_completion_tokens: Math.min(requested, DEFAULT_OUTPUT_TOKEN_CEILING) }
+  }
+  if (valid(legacy) && legacy > DEFAULT_OUTPUT_TOKEN_CEILING) {
+    return { ...payload, max_tokens: DEFAULT_OUTPUT_TOKEN_CEILING }
+  }
+  if (valid(modern) && modern > DEFAULT_OUTPUT_TOKEN_CEILING) {
+    return { ...payload, max_completion_tokens: DEFAULT_OUTPUT_TOKEN_CEILING }
+  }
+  return payload
 }
 
 function waitForDrainOrClose(res) {
