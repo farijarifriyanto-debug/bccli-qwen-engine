@@ -24,7 +24,9 @@ test('brand logo palette uses teal, green and amber without Qwen gradient', () =
   assert.ok(!branded.includes('#C3677F'))
   assert.ok(!branded.includes('#8B5CF6'))
   assert.ok(!branded.includes('#CBA6F7'))
-  const openTui = 'custom.title??">_ Qwen Code";var DEFAULT_GRADIENT=["#4796E4","#847ACE","#C3677F"];addField("Qwen Code",cliVersion'
+  const session = String.fromCharCode(36) + '{sessionId}'
+  const statsSession = String.fromCharCode(36) + '{stats.sessionId}'
+  const openTui = 'custom.title??">_ Qwen Code";var DEFAULT_GRADIENT=["#4796E4","#847ACE","#C3677F"];addField("Qwen Code",cliVersion' + ' To continue this session, run qwen --resume ' + statsSession + ' qwen --resume ' + session
   const changed = patchUiChunk('chunks/start-opentui-ui-Q34XCEMN.js', openTui)
   assert.match(changed, /var DEFAULT_GRADIENT=\["#00AFA0","#22C55E","#EAB308"\]/)
   assert.ok(changed.includes('addField("BCCLI engine",cliVersion'))
