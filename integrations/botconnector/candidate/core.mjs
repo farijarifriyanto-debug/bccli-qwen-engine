@@ -107,6 +107,7 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home } 
   env.QWEN_MODEL = model
   env.QWEN_HOME = home ?? join(homedir(), '.bccli-qwen-candidate')
   env.CLI_TITLE = 'BCCLI - ' + process.cwd().split(/[\\/]/).filter(Boolean).at(-1)
+  env.QWEN_CODE_SKIP_UPDATE_CHECK_ONCE = 'true' // Never query or install upstream Qwen releases.
   return env
 }
 
