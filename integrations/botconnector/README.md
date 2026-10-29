@@ -359,3 +359,24 @@ Owner authorized live Gateway testing. On the owner's Windows machine the **isol
 ### Release state
 
 **Live acceptance PASS for Ling↔GLM session switching, authenticated catalog, GLM/Ling responses and read-only file tool.** Kimi route FAIL, upstream. The new candidate is still private, not published/merged, and the existing global BCCLI remains untouched. Prior production gates (privacy/retention, full diagnostic parity, Node24 shutdown, plan billing reconciliation) remain; do not imply production release.
+
+
+## 2026-10-30 — Kimi parameter compatibility fix and Node24 acceptance
+
+**This section supersedes the earlier Kimi FAIL for the updated candidate; the legacy Gateway `max_tokens` incompatibility remains open for other clients.**
+
+### Root cause and live A/B
+- With identical `kimi-k2.7-code` model and minimal one-message prompt, real Gateway no-tools non-streaming calls returned:
+  - `max_tokens:32` → HTTP 400, upstream "The model has no bounded output limit" (request `7d45c3c8-5cb9-41bb-9c9e-0fca526f904f`).
+  - `max_completion_tokens:32` → **HTTP 200** (request `1bb9ffed-cea3-4085-9437-9212dc8d9223`).
+  - No explicit output-token parameter → **HTTP 200** (request `ba89d04c-34d0-4ecf-80a6-01018d6ee80e`).
+- Fixed **only the isolated BCCLI candidate**: for the exact Kimi ID, `boundChatOutputTokens()` translates `max_tokens` into `max_completion_tokens` with a conservative 4096 cap and preserves the smaller requested limit when both are present. For other models it retains legacy `max_tokens` and the 4096 cap. Never modifies the requested model ID, tools or messages. Added two targeted tests.
+- Fresh candidate rebuilt and npm-installed under `%TEMP%\bccli-qwen-kimi-fixed-install-20261030`. **38/38 unit tests PASS**. SHA256 tarball `DFA564121F89B057E7A366B1394DA92921EAF48515109477F92FB5DAEFB64A17`.
+- Real Node24 `run --model kimi-k2.7-code 'Balas satu kata saja: KUNING'` returned `KUNING` with exit 0 (about 23s). Model's optional `<think>` output is model-generated, not BCCLI identity.
+- **Real Node24 interactive PTY:** started on Ling → `/model kimi-k2.7-code` successfully switched model and terminal status → prompted Kimi to read `test.txt` with `read_file` without edits → final visible answer `Nilai status yang ditemukan di file test.txt adalah: berhasil.`, no API error. Test harness intentionally killed the PTY after capturing the result; harness exit 1 is not evidence of BCCLI crash.
+- **Node24 lifecycle gate:** independent real `run --model glm-5.3-flash` returned `NODE24_OK`, exit 0 in ~7.2s. Interactive `chat` started, `/quit` exited 0 within ~6s. This clears the previously suspected Node24 shutdown issue for these tested flows.
+- Existing **4/4 Node22 integration tests PASS** on the prior candidate; run them again on final package before publication.
+- Separate production issue [BotConnector-Production-Services #225](https://github.com/farijarifriyanto-debug/BotConnector-Production-Services/issues/225) tracks **backend** output-field normalization for all OpenAI-compatible clients. No production backend changes were made here; do not close issue based solely on the BCCLI workaround.
+
+### Status
+**Live Kimi inference PASS with the new candidate**, and in-session Kimi switching PASS. Candidate remains Draft/HOLD pending product release review, plan/PAYG billing reconciliation, privacy/retention verification, and the final integration/regression check. Existing global BCCLI 0.4.17 remains unchanged.
