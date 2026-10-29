@@ -10,6 +10,7 @@ test('accepts only deliberately supported commands and flags', () => {
   assert.throws(() => parseArgs(['run', '--openai-base-url', 'https://evil.example', 'x']), /Unsupported option/)
   assert.throws(() => parseArgs(['run', '-m', 'a', '--model', 'b', 'hi']), /exactly once/)
   assert.throws(() => parseArgs(['models', 'anything']), /Use: models/)
+  assert.deepEqual(parseArgs(['resume', '--model', 'ling-3.0-flash', 'continue']), {command:'resume',model:'ling-3.0-flash',json:false,prompt:'continue'})
 })
 
 test('authenticated discovery keeps endpoint and rejects redirects', async () => {
@@ -47,6 +48,10 @@ test('upstream agent runs with locked gateway, bare mode, and default permission
   assert.deepEqual(args.slice(args.indexOf('--openai-base-url'), args.indexOf('--openai-base-url') + 2), ['--openai-base-url', GATEWAY])
   assert.deepEqual(args.slice(args.indexOf('--approval-mode'), args.indexOf('--approval-mode') + 2), ['--approval-mode', 'default'])
   assert.ok(!args.includes('--yolo'))
+  const resumeArgs = qwenArguments('ling-3.0-flash', 'continue', GATEWAY, { continueSession: true })
+  assert.ok(resumeArgs.includes('--continue'))
+  assert.ok(resumeArgs.includes('--bare'))
+  assert.ok(!qwenArguments('ling-3.0-flash', 'new').includes('--continue'))
 })
 
 test('child strips inherited competing provider keys', () => {
