@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { discoverModels, launchQwen, parseArgs, resolveTrustedMcpConfig, selectModel } from './core.mjs'
+import { DEFAULT_MODEL, discoverModels, launchQwen, parseArgs, resolveTrustedMcpConfig, selectModel } from './core.mjs'
 
 function help() {
   console.log([
@@ -10,7 +10,7 @@ function help() {
     '  bccli-qwen-candidate chat --model MODEL [--mcp-config OWNER_CONFIG_PATH]',
     '',
     'Credentials: set BOTCONNECTOR_API_KEY securely in your process environment.',
-    'Model choice: use --model or BOTCONNECTOR_MODEL_ID (must exist in live Gateway /models).',
+    'Model choice: --model, BOTCONNECTOR_MODEL_ID, otherwise ling-3.0-flash (must exist in Gateway /models).',
     'Security: fixed BotConnector endpoint, ephemeral local token, --bare and default approvals.',
     'MCP: explicit JSON only, directly under ~/.bccli-qwen-candidate/ (no project configs).',
     'Not a replacement for the currently published bccli command.',
@@ -29,7 +29,7 @@ async function main() {
     else models.forEach((item) => console.log(item.id))
     return 0
   }
-  const model = selectModel(models, args.model ?? process.env.BOTCONNECTOR_MODEL_ID)
+  const model = selectModel(models, args.model ?? process.env.BOTCONNECTOR_MODEL_ID ?? DEFAULT_MODEL)
   if (!args.prompt && !process.stdin.isTTY) throw Error('Interactive mode requires a TTY; use run "prompt".')
   const mcpConfig = resolveTrustedMcpConfig(args.mcpConfig)
   return launchQwen({ key, model, prompt: args.prompt, mcpConfig })
