@@ -2,7 +2,6 @@
 // Never mutate the original npm dependency or weaken --bare isolation.
 import { createHash } from 'node:crypto'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 
 const VERSION = '0.26.3'
@@ -99,8 +98,11 @@ function validCache(target, manifest) {
  * No model, provider, tool, permission, or auth logic is modified.
  * The source node_modules/@qwen-code/qwen-code package remains byte-identical.
  */
-export function prepareBrandedQwen(entrypoint, { cacheRoot = join(homedir(), '.bccli-qwen-candidate', 'branded-engines') } = {}) {
+export function prepareBrandedQwen(entrypoint, { cacheRoot } = {}) {
   const packageDir = dirname(entrypoint)
+  // Keep the copy within the same npm dependency tree so Node resolves native
+  // and bundled imports exactly as the installed upstream runtime does.
+  cacheRoot ??= join(dirname(dirname(packageDir)), '.cache', 'bccli-branded-engines')
   const patched = assertSource(packageDir)
   const outputHashes = Object.fromEntries(Object.entries(patched).map(([file, value]) => [file, digest(value)]))
   const manifest = { revision: BRAND_REVISION, version: VERSION, sourceHashes: SOURCE_HASHES, outputHashes }
