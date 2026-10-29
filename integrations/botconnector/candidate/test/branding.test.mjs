@@ -13,16 +13,23 @@ test('white-label patch changes only the ASCII logo with strict locator', () => 
 })
 
 test('Ink and OpenTUI titles update without modifying non-brand fields', () => {
-  const ink = 'prefix customBannerTitle?customBannerTitle:">_ Qwen Code" Add a QWEN.md file to give Qwen Code persistent project context. You can resume a previous conversation by running qwen --continue or qwen --resume. suffix'
+  const session = String.fromCharCode(36) + '{sessionId}'
+  const statsSession = String.fromCharCode(36) + '{stats.sessionId}'
+  const ink = 'prefix customBannerTitle?customBannerTitle:">_ Qwen Code" Add a QWEN.md file to give Qwen Code persistent project context. You can resume a previous conversation by running qwen --continue or qwen --resume. You can run any shell commands from Qwen Code using ! (e.g. !ls). qwen --resume ' + session + ' suffix'
   const result = patchUiChunk('chunks/startInteractiveUI-CECFAXVK.js', ink)
   assert.match(result, />_ BCCLI \| BotConnector/)
   assert.match(result, /Use \/help to explore BCCLI/)
   assert.match(result, /Continue your previous BCCLI session/)
   assert.ok(!result.includes('Qwen Code'))
-  const openTuiBefore = 'custom.title??">_ Qwen Code";var DEFAULT_GRADIENT=["#4796E4","#847ACE","#C3677F"];addField("Qwen Code",cliVersion'
+  const openTuiBefore = 'custom.title??">_ Qwen Code";var DEFAULT_GRADIENT=["#4796E4","#847ACE","#C3677F"];addField("Qwen Code",cliVersion' + ' To continue this session, run qwen --resume ' + statsSession + ' qwen --resume ' + session
   const openTuiAfter = patchUiChunk('chunks/start-opentui-ui-Q34XCEMN.js', openTuiBefore)
   assert.ok(openTuiAfter.includes('custom.title??">_ BCCLI | BotConnector"'))
   assert.ok(openTuiAfter.includes('var DEFAULT_GRADIENT=["#00AFA0","#22C55E","#EAB308"]'))
   assert.ok(openTuiAfter.includes('addField("BCCLI engine",cliVersion'))
+  assert.ok(!openTuiAfter.includes('qwen --resume'))
+  assert.ok(result.includes('BCCLI candidate resume'))
+  assert.ok(!result.includes('You can run any shell commands from Qwen Code'))
+  const summary = patchUiChunk('chunks/chunk-QUFSNRKR.js','children:["qwen --resume ",stats.sessionId]')
+  assert.ok(summary.includes('BCCLI candidate resume (same project)'))
   assert.throws(() => patchUiChunk('chunks/startInteractiveUI-CECFAXVK.js', 'different'), /unsupported/)
 })
