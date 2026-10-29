@@ -7,6 +7,9 @@ test('core coding role is neutral without forcing product or vendor identity', (
   const branded = patchUiChunk('chunks/chunk-OV3EBH6J.js', original)
   assert.ok(branded.includes('You are an AI coding assistant, $'+'{role}, $'+'{focus}.'))
   assert.ok(!branded.includes('You are BCCLI'))
+  assert.ok(branded.includes('var helpCommand='), 'unrelated Help registration must remain present')
+  assert.ok(branded.includes('var settingsCommand='), 'Settings registration must remain present')
+  assert.ok(branded.includes('var docsCommand='), 'Docs registration must remain present')
   assert.ok(!branded.includes('BICO Inovasi Digital'))
   assert.ok(!branded.includes('developed by Alibaba Group'))
   assert.match(branded, /primary goal is to help users safely and efficiently/)
@@ -40,7 +43,7 @@ test('BotConnector provider and release commands cannot open upstream menus', ()
     'var modelCommand={name:"model",action:__name(()=>({type:"dialog",dialog:"model"}),"action")};',
     'var updateCommand={name:"update",description:"Check for Qwen Code updates",action:__name(()=>({type:"message"}),"action")};',
     'var settingsCommand={name:"settings",action:__name(()=>({type:"dialog",dialog:"settings"}),"action")};',
-    'var aboutCommand={name:"status",action:__name(()=>({type:"message",content:"Qwen Code v"}),"action")};',
+    'var aboutCommand={name:"status",action:__name(()=>({type:"message",content:"Qwen Code v"}),"action"),subCommands:[{name:"paths"}]};init_esbuild_shims();',
     'var docsCommand={name:"docs",action:__name(()=>({type:"message",content:"https://qwenlm.github.io/qwen-code-docs/en"}),"action")};',
     'var helpCommand={name:"help",get description(){return t("for help on Qwen Code")},action:__name(()=>({type:"dialog",dialog:"help"}),"action")};',
   ]
