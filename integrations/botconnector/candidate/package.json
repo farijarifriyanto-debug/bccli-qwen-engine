@@ -15,7 +15,8 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "test:security": "node --test test/security-e2e.test.mjs test/proxy-mcp-e2e.test.mjs test/trusted-mcp.test.mjs test/proxy.test.mjs"
+    "test:security": "node --test test/security-e2e.test.mjs test/proxy-mcp-e2e.test.mjs test/trusted-mcp.test.mjs test/proxy.test.mjs",
+    "test:integration": "node --test test-integration/*.test.mjs"
   },
   "license": "Apache-2.0",
   "overrides": {
