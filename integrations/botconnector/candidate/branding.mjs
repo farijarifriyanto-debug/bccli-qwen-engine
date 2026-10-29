@@ -91,16 +91,21 @@ export function guardUpstreamProviderCommands(text) {
     if (pos < 0 || result.indexOf(marker, pos + 1) !== -1) {
       throw Error('BCCLI upstream command locator changed: ' + command)
     }
-    const suffix = ',"action")};'
+    // /status has subCommands after its top-level action. Matching the first
+    // generic action end would accidentally remove neighbouring commands!
+    // This entire command is bounded by its own esbuild shim boundary.
+    const shimBoundary = command === 'about'
+    const suffix = shimBoundary ? '};init_esbuild_shims();' : ',"action")};'
     const end = result.indexOf(suffix, pos)
-    if (end < 0 || end - pos > 18000) {
+    const maxLength = shimBoundary ? 2500 : 18000
+    if (end < 0 || end - pos > maxLength) {
       throw Error('BCCLI upstream command end changed: ' + command)
     }
     const original = result.slice(pos, end + suffix.length)
     if (!original.includes(detect)) {
       throw Error('BCCLI upstream command behavior changed: ' + command)
     }
-    result = result.slice(0, pos) + code + result.slice(end + suffix.length)
+    result = result.slice(0, pos) + code + (shimBoundary ? 'init_esbuild_shims();' : '') + result.slice(end + suffix.length)
   }
   return result
 }
