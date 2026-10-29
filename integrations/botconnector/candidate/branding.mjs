@@ -15,7 +15,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-7L4WTOM2.js': '4d8053c956cc7881b7f87ae2c0e96bf1adc942a37ac37de3d76eaeb9367041fc',
   'chunks/chunk-QUFSNRKR.js': 'f52e1917c7956b02208b39982bbf7b45fb52c294418ebd93f7f2f0677c1aaa2d',
 })
-const BRAND_REVISION = 'bccli-white-label-20261029-v6-model-picker'
+const BRAND_REVISION = 'bccli-white-label-20261029-v7-settings-diagnostics'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -62,6 +62,21 @@ export function guardUpstreamProviderCommands(text) {
       command: 'model',
       detect: 'dialog:"model"',
       code: BCCLI_MODEL_COMMAND,
+    },
+    {
+      command: 'settings',
+      detect: 'dialog:"settings"',
+      code: 'var settingsCommand={name:"settings",get description(){return "View safe BCCLI settings"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(context=>({type:"message",messageType:"info",content:"BCCLI | BotConnector Settings\\nGateway: https://api.botconnector.id/v1 (fixed)\\nModel: "+(context.services?.config?.getModel?.()||"unknown")+"\\nAuth: existing bccli login (bc-cloud) or BOTCONNECTOR_API_KEY override\\nPermissions: ask before file changes and shell commands\\nUse /model to switch AI, /auth for connection help, /permissions for tool approvals, /theme to change appearance. Upstream provider and project-settings editors are disabled."}),"action")};',
+    },
+    {
+      command: 'about',
+      detect: 'Qwen Code v',
+      code: 'var aboutCommand={name:"status",altNames:["about"],get description(){return "Show BCCLI and BotConnector session diagnostics"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],canRunDuringStreaming:true,action:__name((context,arg)=>{const config=context.services?.config;const input=String(context.invocation?.args||arg||"").trim().toLowerCase();const message=input==="credits"?"BCCLI coding-agent runtime: based on Qwen Code 0.26.3 (Apache-2.0). Source attribution and license notices are retained in the installed runtime. Product repository: https://github.com/farijarifriyanto-debug/bccli":"BCCLI | BotConnector (candidate)\\nAI model: "+(config?.getModel?.()||"unknown")+"\\nGateway: https://api.botconnector.id/v1\\nProvider routing: managed by BotConnector\\nPermissions: default (ask)\\nSource: https://github.com/farijarifriyanto-debug/bccli\\nEngine runtime: 0.26.3\\nFor open-source engine credits use /about credits.";return{type:"message",messageType:"info",content:message}},"action")};',
+    },
+    {
+      command: 'docs',
+      detect: 'qwen-code-docs',
+      code: 'var docsCommand={name:"docs",get description(){return "BCCLI product documentation"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(()=>({type:"message",messageType:"info",content:"BCCLI documentation and releases: https://github.com/farijarifriyanto-debug/bccli#readme"}),"action")};',
     },
     {
       command: 'update',
@@ -180,7 +195,11 @@ export function patchUiChunk(file, text) {
       '`Qwen Code v${systemInfo.cliVersion}`',
       '`BCCLI (engine v${systemInfo.cliVersion})`',
       'non-interactive status product label')
-    return guardUpstreamProviderCommands(result)
+    result = guardUpstreamProviderCommands(result)
+    return replaceOnce(result,
+      'get description(){return t("for help on Qwen Code")}',
+      'get description(){return t("BCCLI help and keyboard shortcuts")}',
+      'Help command description')
   }
   throw Error('Unrecognized BCCLI branding file.')
 }
