@@ -77,6 +77,17 @@ export function attachRuntimeModelContext(payload) {
   return { ...payload, messages }
 }
 
+// Qwen 0.26.3 sends max_tokens=64000 for many model IDs. Several Gateway
+// upstream routes reject that value (e.g. GLM Flash). Bound the requested
+// output conservatively for coding-agent interoperability; never increase it.
+// This does not change the context window or input-token budget.
+const DEFAULT_OUTPUT_TOKEN_CEILING = 4096
+export function boundChatOutputTokens(payload) {
+  if (!payload || typeof payload !== 'object') return payload
+  if (!Number.isInteger(payload.max_tokens) || payload.max_tokens <= DEFAULT_OUTPUT_TOKEN_CEILING) return payload
+  return { ...payload, max_tokens: DEFAULT_OUTPUT_TOKEN_CEILING }
+}
+
 function waitForDrainOrClose(res) {
   if (res.destroyed) return Promise.resolve()
   return new Promise((resolve) => {
@@ -147,7 +158,7 @@ export async function startGatewayProxy({ key, token = randomBytes(32).toString(
           let parsed
           try { parsed = JSON.parse(body.toString('utf8')) }
           catch { fail(400, 'Invalid JSON request.'); return }
-          const normalized = attachRuntimeModelContext(normalizeZeroArgFunctionTools(parsed))
+          const normalized = boundChatOutputTokens(attachRuntimeModelContext(normalizeZeroArgFunctionTools(parsed)))
           if (normalized !== parsed) body = Buffer.from(JSON.stringify(normalized))
         }
       }
