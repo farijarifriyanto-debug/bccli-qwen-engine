@@ -210,3 +210,27 @@ Set-Location (Join-Path $env:TEMP 'bccli-qwen-tooltest')
 This is a **white-labeled entry surface**, not removal of upstream provenance or a claim that every diagnostics/settings/attribution screen has been renamed. Further UI branding coverage remains an acceptance/release gate; do not patch arbitrary Qwen strings or disable required license notices.
 
 **Release remains HOLD** pending security, upgrade/race conditions, production accounting and Node runtime support. The new branding feature requires a fresh CLI process; rebuild does not modify a terminal that is already open.
+
+
+## 2026-10-29 — BCCLI rebrand v2 built and PTY-verified (supersedes v1)
+
+The user's interactive screenshot exposed an upstream core system-prompt sentence: `You are Qwen Code ... developed by Alibaba Group`. This overrode the product-only introduction despite an appended instruction. The runtime patch now makes the core sentence `You are BCCLI ... developed by BICO Inovasi Digital for BotConnector`, while preserving the remainder of the coding agent tool/safety prompt. The appended product instructions distinguish **Ling as the selected model**, **BCCLI as the BotConnector product**, and **Qwen Code as the open-source runtime**, disclosed only when explicitly asked about implementation. Don't misrepresent ownership of the upstream runtime or remove Apache-2.0 notices.
+
+**Distinct UI palette:** Ink light/dark and OpenTUI use a custom `#00AFA0` teal → `#22C55E` green → `#EAB308` amber gradient; supporting accents were also adjusted. The prior upstream blue/purple/rose gradient is no longer used on the terminal's rendered logo. The runtime remains copied into a private immutable SHA256-pinned cache and the original npm dependency is not modified. Only pinned runtime bundles are patched; any upstream mismatch fails closed.
+
+**User-facing routing:** the `/bug` issue URL and npm package metadata now point to the **independent BCCLI product** repository `https://github.com/farijarifriyanto-debug/bccli`, not the fork. The internal fork `bccli-qwen-engine` retains upstream fork provenance; this should not be presented as the product homepage.
+
+**Verification:** `npm run rebuild` **24/24 routine tests PASS**, including identity attribution, palette, product issue links and fail-closed patching. Windows Node22 **4/4 integration tests PASS**, including actual pinned-engine streaming through a fake local Gateway, preservation of tool definitions and API key isolation, and a system prompt assertion containing BICO identity instead of Alibaba product attribution. Windows PTY rendered a BCCLI logo and panel, teal and amber truecolor ANSI sequences, with no upstream blue-purple-rose brand colors (or `Qwen Code (v...)` header). No real API key was used for the branding PTY/integration tests.
+
+**Fresh packaged install:** `@botconnector/bccli-qwen-candidate@0.0.0` rebuilt local tarball: SHA256 `BD6695501B463453F3695AFC4A0FC4402E34A2C243013C256FA64B98FDFD559F`, 9,769 bytes. Installed in separate `%TEMP%\bccli-qwen-brand-v2-install-20261029`, confirmed bundled branding, expected private white-label cache, and correct BCCLI help. Global legacy `bccli` remains `0.4.17`.
+
+**To test the current v2 packaged build yourself** (PowerShell; owner must provide API key securely in their shell):
+```powershell
+$root = Join-Path $env:TEMP 'bccli-qwen-poc-20261029'
+$node22 = Join-Path $root 'node22-runtime\node_modules\node\bin\node.exe'
+$cli = Join-Path $env:TEMP 'bccli-qwen-brand-v2-install-20261029\node_modules\@botconnector\bccli-qwen-candidate\cli.mjs'
+Set-Location (Join-Path $env:TEMP 'bccli-qwen-tooltest')
+& $node22 $cli chat
+```
+
+**Limitations:** Existing sessions preserve old assistant output and model memory. Start a **new** session (not `resume`) when testing rebrand persona. An upstream update notice or technical diagnostics may still mention Qwen; do not falsely imply that all underlying implementation/attribution strings are removed. The `/update` mechanism remains upstream-controlled and must be disabled or replaced with BotConnector release policy **before public production cutover** to prevent accidentally upgrading to Qwen upstream. The displayed v0.26.3 suffix is the pinned **engine version**, not a BCCLI release. Keep npm production release **HOLD** pending update flow, Node24, account/plan billing, privacy and wider regression testing. No merge or npm publish was done.
