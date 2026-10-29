@@ -82,10 +82,12 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, co
     '--model', model, '--approval-mode', 'default',
     '--telemetry=false',
   ]
-  // Pass only runtime facts derived from the actual gateway-selected model.
-  // No fixed product/model persona or forced self-introduction.
+  // The active AI can change with /model. Do not embed the STARTUP model
+  // here: doing so would falsely identify a later selected model.
+  // The BotConnector local proxy adds the actual request model to each
+  // chat call, without forcing the AI to impersonate BCCLI.
   args.push('--append-system-prompt',
-    'Runtime metadata: active_model_id=' + model + '; client_app=BCCLI; gateway=BotConnector.')
+    'Client app: BCCLI. Gateway: BotConnector. The active AI model can change in-session; use the current request runtime metadata, not the initial launch model. Do not treat the client app as the model identity.')
   if (mcpConfig) args.push('--mcp-config', mcpConfig)
   if (continueSession) args.push('--continue')
   if (prompt) args.push(prompt)
