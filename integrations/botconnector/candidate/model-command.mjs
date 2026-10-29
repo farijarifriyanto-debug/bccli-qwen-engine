@@ -2,7 +2,7 @@
 // Fetches the authenticated model catalog from the existing local BotConnector
 // proxy on each invocation. Selection changes Qwen Config in the current
 // session; it never opens upstream provider settings or writes project config.
-export const BCCLI_MODEL_COMMAND = String.raw`var modelCommand={name:"model",get description(){return "Choose a BotConnector AI model in this session"},argumentHint:"[number|model-id|search WORD|page N]",kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(async(context,argumentText)=>{
+export const BCCLI_MODEL_COMMAND = String.raw`var bccliModelLastList=[];var modelCommand={name:"model",get description(){return "Choose a BotConnector AI model in this session"},argumentHint:"[number|model-id|search WORD|page N]",kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(async(context,argumentText)=>{
   var response=(type,content)=>({type:"message",messageType:type,content});
   try{
     var base=process.env.OPENAI_BASE_URL||"";
@@ -27,6 +27,7 @@ export const BCCLI_MODEL_COMMAND = String.raw`var modelCommand={name:"model",get
     if(!config||typeof config.setModel!=="function")return response("error","BCCLI model switch is unavailable in this session.");
     var current=config.getModel?.()||process.env.OPENAI_MODEL||"(unknown)";
     var list=(entries,page=1)=>{
+      bccliModelLastList=entries.map(x=>x.id);
       var size=12;
       var pages=Math.max(1,Math.ceil(entries.length/size));
       if(!Number.isSafeInteger(page)||page<1||page>pages)return response("error","Invalid page. Use /model page 1 ... "+pages);
@@ -42,7 +43,7 @@ export const BCCLI_MODEL_COMMAND = String.raw`var modelCommand={name:"model",get
     var item;
     if(/^[0-9]+$/.test(text)){
       var index=Number(text);
-      item=Number.isSafeInteger(index)&&index>=1?all[index-1]:undefined;
+      item=Number.isSafeInteger(index)&&index>=1?catalog.get(bccliModelLastList[index-1]||all[index-1]?.id):undefined;
     }else if(/^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/.test(text)){
       item=catalog.get(text);
     }
