@@ -75,24 +75,19 @@ test('wrong or missing key aborts before switching or sending AI',async()=>{
   assert.equal(events.length,0)
 })
 
-test('real upstream /provider and /auth aliases transfer control to parent menu',()=>{
+test('real upstream /provider aliases switch via the local parent proxy without exiting the chat',()=>{
   const require=createRequire(import.meta.url)
   const filename=join(dirname(require.resolve('@qwen-code/qwen-code/package.json')),'chunks/chunk-7L4WTOM2.js')
   const original=readFileSync(filename,'utf8')
   const patched=guardUpstreamProviderCommands(original)
   const begin=patched.indexOf('var authCommand=')
   const end=patched.indexOf(',"action")};',begin)
-  assert.ok(begin > 0)
-  assert.ok(end > begin)
+  assert.ok(begin > 0 && end > begin)
   const code=patched.slice(begin,end+11)
-  let exitCode
-  const command=vm.runInNewContext(code+'\nauthCommand', {process:{exit:v=>{exitCode=v}},__name:f=>f})
-  assert.ok(command.altNames.includes('provider'))
-  command.action({executionMode:'interactive'})
-  assert.equal(exitCode,PROVIDER_SWITCH_EXIT)
-  exitCode=undefined
-  assert.equal(command.action({executionMode:'non_interactive'}).messageType,'error')
-  assert.equal(exitCode,undefined)
+  assert.match(code,/name:"provider",altNames:\["auth","connect","login"\]/)
+  assert.match(code,/\/bccli\/providers/)
+  assert.match(code,/bccli-provider-switch/)
+  assert.doesNotMatch(code,/process\.exit\(51\)/)
 })
 test('returning BotConnector user with configured credentials opens chat directly using default model', async () => {
   const result = await autoSelectStartup({

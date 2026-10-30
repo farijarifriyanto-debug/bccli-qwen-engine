@@ -42,14 +42,14 @@ jobs:
       - name: Build SHA512-verified upstream engine and stable SDK in one BCCLI package
         shell: pwsh
         run: |
-          $out = Join-Path $env:RUNNER_TEMP 'bccli-bundled-052-rc2'
+          $out = Join-Path $env:RUNNER_TEMP 'bccli-bundled-052-rc3'
           & node integrations/botconnector/release/prepare-preview-ui.mjs --out $out
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Install tarball and verify npm dependency tree, SDK, CLI and new renderer assets
         shell: pwsh
         run: |
-          $out = Join-Path $env:RUNNER_TEMP 'bccli-bundled-052-rc2'
-          $archive = Join-Path $out 'botconnector-bccli-0.5.2-rc.2.tgz'
+          $out = Join-Path $env:RUNNER_TEMP 'bccli-bundled-052-rc3'
+          $archive = Join-Path $out 'botconnector-bccli-0.5.2-rc.3.tgz'
           if (-not (Test-Path $archive)) { throw 'Preview artifact missing' }
           $install = Join-Path $env:RUNNER_TEMP 'bccli-bundled-preview-installed'
           New-Item -ItemType Directory -Path $install -Force | Out-Null
@@ -57,7 +57,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $packagePath = Join-Path $install 'node_modules/@botconnector/bccli'
           $metadata = Get-Content (Join-Path $packagePath 'package.json') -Raw | ConvertFrom-Json
-          if ($metadata.version -ne '0.5.2-rc.2') { throw 'Wrong preview version' }
+          if ($metadata.version -ne '0.5.2-rc.3') { throw 'Wrong preview version' }
           foreach ($entry in @('engine/cli-entry.js','engine/LICENSE','engine/package.json','legacy/dist/cli.js','legacy/dist/sdk.js','legacy/LICENSE')) {
             if (-not (Test-Path (Join-Path $packagePath $entry))) { throw "Missing bundled runtime file: $entry" }
           }
@@ -65,7 +65,7 @@ jobs:
           if (@($deps | Where-Object { $_ -like '@qwen-code/*' }).Count -gt 0) { throw 'Qwen npm dependency must be absent' }
           if (Test-Path (Join-Path $install 'node_modules/@qwen-code')) { throw 'Unexpected Qwen node_modules scope' }
           $v = (& node (Join-Path $packagePath 'cli.mjs') --version | Out-String).Trim()
-          if ($LASTEXITCODE -ne 0 -or $v -ne '0.5.2-rc.2') { throw "Unexpected installed CLI version: $v" }
+          if ($LASTEXITCODE -ne 0 -or $v -ne '0.5.2-rc.3') { throw "Unexpected installed CLI version: $v" }
           Push-Location $install
           try {
             & node --input-type=module -e "import('@botconnector/bccli').then(m=>{if(typeof m.runTask!=='function'||typeof m.streamTask!=='function')process.exit(1)})"

@@ -24,7 +24,7 @@ function createCommand({ data = [{id:'ling-3.0-flash'},{id:'kimi-k2.7-code'},{id
 test('in-terminal /model uses authenticated localhost catalog and changes live Config',async()=>{
   const x=createCommand()
   const menu=await x.call('')
-  assert.match(menu.content,/bccli provider use PROVIDER/)
+  assert.ok(menu.content.includes('/provider'))
   assert.doesNotMatch(menu.content,/bccli-preview provider use/)
   assert.equal(menu.type,'message')
   assert.match(menu.content,/1\. glm-5\.3-flash/)

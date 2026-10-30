@@ -5,6 +5,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, r
 import { basename, dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { BCCLI_MODEL_COMMAND } from './model-command.mjs'
+import { BCCLI_PROVIDER_COMMAND } from './provider-command.mjs'
 
 const VERSION = '0.26.3'
 const SOURCE_HASHES = Object.freeze({
@@ -19,7 +20,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-ERV2ECV3.js': '7d2511a8317ee2c44edd2fd62b43966b9acfbfaac79175cd0cc9fb9ed42051c6',
   'chunks/server-SJNWHHV4.js': '42ceeddc69dda95fbaac276cbd94e99432892305d169d248e760c9d94aab6eaf',
 })
-const BRAND_REVISION = 'bccli-new-20261030-native-scrollback-v5'
+const BRAND_REVISION = 'bccli-new-20261030-provider-live-v6'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -60,7 +61,7 @@ export function guardUpstreamProviderCommands(text) {
     {
       command: 'auth',
       detect: 'dialog:"auth"',
-      code: 'var authCommand={name:"auth",altNames:["connect","login","provider"],get description(){return "Choose provider, add API key and select a model in BCCLI"},kind:"built-in",supportedModes:["interactive"],action:__name((context)=>{if(context.executionMode && context.executionMode!=="interactive")return{type:"message",messageType:"error",content:"Provider switching requires an interactive terminal."};process.exit(51)},"action")};',
+      code: BCCLI_PROVIDER_COMMAND,
     },
     {
       command: 'model',

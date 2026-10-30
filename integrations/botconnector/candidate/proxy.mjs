@@ -1,7 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
 import { GATEWAY } from './gateway.mjs'
-import { ALLOWED_PROVIDER_ENDPOINTS } from './providers.mjs'
+import { ALLOWED_PROVIDER_ENDPOINTS, PROVIDERS, resolveProvider, isConfigured, useProvider, saveSelectedModel } from './providers.mjs'
 
 // This proxy lives only for one Qwen Code session. Real provider keys remain in
 // the launcher process; MCP and bash subprocesses can see only a short-lived
@@ -138,11 +138,39 @@ function matchesToken(auth, token) {
   return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
-export async function startGatewayProxy({ key, endpoint = GATEWAY, token = randomBytes(32).toString('hex'), fetchImpl = fetch } = {}) {
+export async function startGatewayProxy({ key, endpoint = GATEWAY, token = randomBytes(32).toString('hex'), fetchImpl = fetch, liveProvider = false, initialProvider = 'botconnector', resolveProfile = resolveProvider, configured = isConfigured, selectProvider = useProvider, rememberModel = saveSelectedModel } = {}) {
   if (!ALLOWED_PROVIDER_ENDPOINTS.includes(endpoint)) throw Error('Unapproved provider endpoint; local proxy refused to start.')
   if (typeof key !== 'string' || !key.trim()) throw Error('Gateway key is required for local proxy.')
   if (typeof token !== 'string' || token.length < 6 || token === key) throw Error('Invalid or non-isolated proxy token.')
 
+  // In-process provider switching keeps the same coding-agent session and
+  // approval state. Real keys never leave the parent proxy, and the configured
+  // HTTPS endpoint must belong to the audited provider allowlist.
+  let active = { id: initialProvider, endpoint, key }
+  let inFlight = 0
+  const publicProviders = () => Object.entries(PROVIDERS).map(([id, item]) => ({
+    id, name: item.name, active: id === active.id, configured: configured(id),
+  }))
+  const getModels = async (id) => {
+    if (!Object.hasOwn(PROVIDERS, id)) throw Error('Unsupported provider')
+    if (!configured(id)) throw Error('Provider is not configured')
+    const profile = resolveProfile(id)
+    if (!ALLOWED_PROVIDER_ENDPOINTS.includes(profile.endpoint) || profile.endpoint !== PROVIDERS[id].endpoint || !profile.key) {
+      throw Error('Unsafe provider profile')
+    }
+    const upstream = await fetchImpl(profile.endpoint + '/models', {
+      method: 'GET',
+      headers: { authorization: 'Bearer ' + profile.key, accept: 'application/json' },
+      redirect: 'error', signal: AbortSignal.timeout(12000),
+    })
+    if (!upstream.ok) throw Error('Provider catalog unavailable')
+    const body = await upstream.json()
+    if (!Array.isArray(body?.data)) throw Error('Invalid catalog')
+    const modelId = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/
+    const ids = [...new Set(body.data.map(x => x?.id).filter(x => typeof x === 'string' && modelId.test(x)))].sort()
+    if (!ids.length) throw Error('No eligible models')
+    return { profile, models: ids }
+  }
   const server = createServer(async (req, res) => {
     const fail = (status, body) => {
       if (res.headersSent || res.destroyed) return
@@ -152,6 +180,57 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
 
     if (!matchesToken(req.headers.authorization, token)) {
       fail(401, 'Local session token is required.')
+      return
+    }
+    // Provider management is a local-only, authenticated, explicitly user-
+    // invoked slash command. The payload is never forwarded as an AI prompt.
+    if (req.url === '/v1/bccli/providers' && liveProvider && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+      res.end(JSON.stringify({ providers: publicProviders(), active: active.id }))
+      return
+    }
+    const modelsMatch = liveProvider && /^\/v1\/bccli\/providers\/([a-z][a-z0-9-]{0,31})\/models$/.exec(req.url ?? '')
+    if (modelsMatch && req.method === 'GET') {
+      try {
+        const { models } = await getModels(modelsMatch[1])
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+        res.end(JSON.stringify({ provider: modelsMatch[1], models }))
+      } catch {
+        fail(400, 'Provider is not configured or its model catalog cannot be verified.')
+      }
+      return
+    }
+    if (req.url === '/v1/bccli/provider/switch' && liveProvider && req.method === 'POST') {
+      if (inFlight) { fail(409, 'Finish the active AI response before switching providers.'); return }
+      if (Number(req.headers['content-length'] || 0) > 1024) { fail(413, 'Invalid provider selection.'); return }
+      try {
+        const buffers = []
+        let length = 0
+        for await (const part of req) {
+          length += part.length
+          if (length > 1024) { fail(413, 'Invalid provider selection.'); return }
+          buffers.push(part)
+        }
+        const selection = JSON.parse(Buffer.concat(buffers).toString('utf8'))
+        const id = selection?.provider
+        const model = selection?.model
+        if (selection?.action !== 'user-selected-provider' ||
+            typeof id !== 'string' || !Object.hasOwn(PROVIDERS, id) ||
+            typeof model !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/.test(model)) {
+          fail(400, 'Invalid provider/model selection.')
+          return
+        }
+        const { profile, models } = await getModels(id)
+        if (!models.includes(model)) { fail(400, 'Model is not available to the selected provider.'); return }
+        // No real key or upstream metadata is sent to the coding engine.
+        rememberModel(id, model)
+        selectProvider(id)
+        active = { id, endpoint: profile.endpoint, key: profile.key }
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+        res.end(JSON.stringify({ provider: id, model }))
+      } catch {
+        fail(400, 'Provider switch rejected; previous provider retained.')
+      }
       return
     }
     if (!ALLOWED_PATHS.has(req.url ?? '')) {
@@ -168,6 +247,7 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
       return
     }
 
+    let counted = false
     const abort = new AbortController()
     const onClose = () => { if (!res.writableEnded) abort.abort() }
     res.once('close', onClose)
@@ -193,10 +273,13 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
           if (normalized !== parsed) body = Buffer.from(JSON.stringify(normalized))
         }
       }
-      const upstream = await fetchImpl(endpoint + req.url.slice(3), {
+      inFlight += 1
+      counted = true
+      const destination = active
+      const upstream = await fetchImpl(destination.endpoint + req.url.slice(3), {
         method,
         headers: {
-          authorization: 'Bearer ' + key,
+          authorization: 'Bearer ' + destination.key,
           accept: 'application/json, text/event-stream',
           ...(method === 'POST' ? { 'content-type': 'application/json' } : {}),
         },
@@ -219,6 +302,7 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
       if (res.headersSent) res.destroy()
       else fail(502, 'Provider connection failed.')
     } finally {
+      if (counted) inFlight -= 1
       res.off('close', onClose)
     }
   })

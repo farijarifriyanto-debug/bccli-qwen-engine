@@ -250,7 +250,7 @@ export function resolveQwenEntrypoint() {
 export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, resumeSession, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
   // The real API key never enters Qwen, its tools, or any MCP child process.
   // Only this launcher retains it while the ephemeral proxy is running.
-  const proxy = await proxyFactory({ key, endpoint: upstream })
+  const proxy = await proxyFactory({ key, endpoint: upstream, liveProvider: true, initialProvider: providerId })
   try {
     const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, resumeSession })]
     const child = spawnImpl(process.execPath, args, {
