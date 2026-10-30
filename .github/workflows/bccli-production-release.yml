@@ -100,7 +100,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG='v0.5.0'
+          TAG='bccli-v0.5.0'
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Stable GitHub release exists; preserving immutable assets."
             exit 0
