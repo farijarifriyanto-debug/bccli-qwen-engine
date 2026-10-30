@@ -104,3 +104,15 @@ test('BotConnector key replacement is explicit and cancellation never overwrites
   assert.equal(choice.model,'ling-3.0-flash')
   assert.deepEqual(events2,['save:botconnector','use:botconnector'])
 })
+
+test('Windows DPAPI encrypts an actual BotConnector preview credential for the current user', { skip:process.platform!=='win32' || process.env.CI==='true' }, () => {
+  const root=mkdtempSync(join(tmpdir(),'bccli-botconnector-dpapi-owner-test-'))
+  try {
+    const secret='FAKE_TEST_ONLY_BOTCONNECTOR_KEY'
+    saveProviderKey('botconnector',secret,{root})
+    const onDisk=readFileSync(join(root,'provider-botconnector.dpapi'),'utf8')
+    assert.doesNotMatch(onDisk,/FAKE_TEST_ONLY_BOTCONNECTOR_KEY/)
+    assert.match(onDisk,/^[0-9a-f]+\\s*$/i)
+    assert.equal(storedProviderKey('botconnector',{root}),secret)
+  } finally { rmSync(root,{recursive:true,force:true}) }
+})
