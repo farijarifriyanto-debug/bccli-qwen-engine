@@ -3,7 +3,7 @@ import test from 'node:test'
 import { mkdtempSync, writeFileSync, symlinkSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { botConnectorKey } from '../credentials.mjs'
+import { botConnectorKey, botConnectorCredentialStatus } from '../credentials.mjs'
 
 test('reuse existing bc-cloud login from trusted BCCLI home, never from project files', () => {
   const root = mkdtempSync(join(tmpdir(), 'bccli-login-test-'))
@@ -33,4 +33,26 @@ test('reject symlinked credential file and relative override', () => {
       if (err?.code !== 'EPERM' && err?.code !== 'EACCES') throw err
     }
   } finally { rmSync(root, { recursive: true, force: true }) }
+})
+
+test('credential status is offline, read-only, and never exposes the long-lived secret', () => {
+  const root = mkdtempSync(join(tmpdir(), 'bccli-auth-status-'))
+  try {
+    const statusMissing = botConnectorCredentialStatus({env:{BCCLI_HOME:root},home:root})
+    assert.equal(statusMissing.configured,false)
+    assert.equal(statusMissing.source,'none')
+    assert.ok(!JSON.stringify(statusMissing).includes('SENSITIVE_FAKE_KEY'))
+    const file=join(root,'credentials')
+    writeFileSync(file,JSON.stringify({'bc-cloud':'SENSITIVE_FAKE_KEY','unrelated':'OTHER_SECRET'}))
+    const saved=botConnectorCredentialStatus({env:{BCCLI_HOME:root},home:root})
+    assert.deepEqual(saved,{configured:true,source:'public-bccli'})
+    const explicit=botConnectorCredentialStatus({env:{BCCLI_HOME:root,BOTCONNECTOR_API_KEY:'OVERRIDE_FAKE_SECRET'},home:root})
+    assert.deepEqual(explicit,{configured:true,source:'environment'})
+    assert.ok(!JSON.stringify({saved,explicit}).includes('SENSITIVE_FAKE_KEY'))
+    assert.ok(!JSON.stringify({saved,explicit}).includes('OVERRIDE_FAKE_SECRET'))
+    assert.equal(botConnectorKey({env:{BCCLI_HOME:root},home:root}),'SENSITIVE_FAKE_KEY')
+    // Invalid credential file never masquerades as a valid login.
+    writeFileSync(file,'invalid json')
+    assert.equal(botConnectorCredentialStatus({env:{BCCLI_HOME:root},home:root}).configured,false)
+  } finally { rmSync(root,{recursive:true,force:true}) }
 })
