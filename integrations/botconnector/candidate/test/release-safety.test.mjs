@@ -18,6 +18,7 @@ test('candidate tarball includes upstream attribution and pinned engine', () => 
   assert.equal(pack.dependencies?.['@qwen-code/qwen-code'], '0.26.3')
   assert.ok(pack.files?.includes('LICENSE'))
   assert.ok(pack.files?.includes('THIRD_PARTY_NOTICES.md'))
+  assert.ok(pack.files?.includes('output-compat.mjs'), 'structured output adapter must ship with CLI')
   assert.ok(readFileSync(new URL('../LICENSE', import.meta.url), 'utf8').includes('Apache License'))
   assert.ok(readFileSync(new URL('../THIRD_PARTY_NOTICES.md', import.meta.url), 'utf8').includes('Qwen Code'))
 })
