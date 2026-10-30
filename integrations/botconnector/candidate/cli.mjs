@@ -25,6 +25,7 @@ async function main() {
   if (argv.length === 0 && !process.stdin.isTTY) { help(); return 2 }
   if (argv[0] === '--help' || argv[0] === '-h' || argv[0] === 'help') { help(); return 0 }
   const args = parseArgs(argv)
+  if (args.command !== 'models') assertCandidateRuntimeSupported() // Avoid network/key reads before compatibility check.
   const key = botConnectorKey()
   const models = await discoverModels({ key })
   if (args.command === 'models') {
@@ -32,7 +33,6 @@ async function main() {
     else models.forEach((item) => console.log(item.id))
     return 0
   }
-  assertCandidateRuntimeSupported() // Only block affected Windows Node24 coding sessions; model discovery still works.
   const model = selectModel(models, args.model ?? process.env.BOTCONNECTOR_MODEL_ID ?? DEFAULT_MODEL)
   if (!args.prompt && !process.stdin.isTTY) throw Error('Interactive mode requires a TTY; use run "prompt".')
   const mcpConfig = resolveTrustedMcpConfig(args.mcpConfig)
