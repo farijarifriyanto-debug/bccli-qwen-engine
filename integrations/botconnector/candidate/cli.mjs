@@ -17,7 +17,8 @@ function help() {
     '  bccli --version',
     '  bccli chat [--model MODEL] [--mcp-config OWNER_CONFIG_PATH]',
     '  bccli resume [--model MODEL] [prompt]',
-    '  bccli -c [-m MODEL] [prompt]  (resume current project)',
+    '  bccli -c [-m MODEL] [prompt]  (resume latest current-project session)',
+    '  bccli -r [SESSION_UUID] [-m MODEL]  (native Qwen session picker or specific session)',
     '  bccli auth status  (offline; does not print API key)',
     '  bccli provider list|add|use|remove [ID]  (manage provider keys)',
     '  bccli models --provider ID  (list models for provider)',
@@ -31,7 +32,7 @@ function help() {
     'Model choice: --model; BotConnector defaults to ling-3.0-flash. Other providers need --model.',
     'Security: allowlisted provider endpoints, ephemeral local token, --bare and default approvals.',
     'MCP: explicit JSON only, directly under ~/.bccli-preview/ (no project configs).',
-    'Text-only -p alias; public --output-format JSON/stream-json and -r picker are not yet supported.',
+    'Text-only -p alias; public --output-format JSON/stream-json are not yet supported.',
     'Local new-engine RC; the public npm stable release is unchanged.',
   ].join('\n'))
 }
@@ -88,17 +89,19 @@ async function main() {
   }
   const entrypoint = prepareBrandedQwen(resolveQwenEntrypoint())
   let continueSession = args.command === 'resume'
+  let resumeSession = args.resumeSession
   for (;;) {
     console.log('BCCLI | ' + providerDefinition(chosen.providerId).name + ' | ' + chosen.model)
     const code = await launchQwen({
       key: chosen.key, model: chosen.model, prompt: args.prompt,
       mcpConfig, entrypoint, upstream: chosen.endpoint,
-      providerId: chosen.providerId, continueSession,
+      providerId: chosen.providerId, continueSession, resumeSession,
     })
     if (code !== PROVIDER_SWITCH_EXIT) return code
     if (args.prompt || !process.stdin.isTTY) throw Error('Provider menu requires an interactive terminal.')
     // /provider and /auth close the current engine cleanly, then the parent
     // asks for a key and model. Keys never enter the Qwen agent process.
+    resumeSession = undefined // Native picker is used only on the first launch.
     const previousProvider = chosen.providerId
     chosen = await startupMenu()
     continueSession = previousProvider === chosen.providerId
