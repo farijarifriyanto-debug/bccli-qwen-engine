@@ -13,7 +13,7 @@ function help() {
     'Usage:',
     '  bccli-preview models [--json]',
     '  bccli-preview run --model MODEL "prompt" [--mcp-config OWNER_CONFIG_PATH]',
-    '  bccli-preview -p "prompt" [-m MODEL]  (text-only headless alias)',
+    '  bccli-preview -p "prompt" [-m MODEL] [--output-format text|json|stream-json]',
     '  bccli-preview --version',
     '  bccli-preview chat [--model MODEL] [--mcp-config OWNER_CONFIG_PATH]',
     '  bccli-preview resume [--model MODEL] [prompt]',
@@ -31,7 +31,7 @@ function help() {
     'Model choice: --model; BotConnector defaults to ling-3.0-flash. Other providers need --model.',
     'Security: fixed BotConnector endpoint, ephemeral local token, --bare and default approvals.',
     'MCP: explicit JSON only, directly under ~/.bccli-preview/ (no project configs).',
-    'Text-only -p alias; public --output-format JSON/stream-json and -r picker are not yet supported.',
+    'Headless -p supports text, json, and stream-json; -r session picker is not yet supported.',
     'Not a replacement for the currently published bccli command.',
   ].join('\n'))
 }
@@ -89,10 +89,11 @@ async function main() {
   const entrypoint = prepareBrandedQwen(resolveQwenEntrypoint())
   let continueSession = args.command === 'resume'
   for (;;) {
-    console.log('BCCLI | ' + providerDefinition(chosen.providerId).name + ' | ' + chosen.model)
+    // Structured stdout belongs entirely to the engine; a banner would corrupt JSON/JSONL.
+    if (!args.outputFormat || args.outputFormat === 'text') console.log('BCCLI | ' + providerDefinition(chosen.providerId).name + ' | ' + chosen.model)
     const code = await launchQwen({
       key: chosen.key, model: chosen.model, prompt: args.prompt,
-      mcpConfig, entrypoint, upstream: chosen.endpoint,
+      mcpConfig, outputFormat: args.outputFormat, entrypoint, upstream: chosen.endpoint,
       providerId: chosen.providerId, continueSession,
     })
     if (code !== PROVIDER_SWITCH_EXIT) return code
