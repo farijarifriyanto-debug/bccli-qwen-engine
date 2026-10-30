@@ -19,8 +19,8 @@ for (const arg of args) {
   }
 }
 const source = resolve(option('--source', fileURLToPath(new URL('../candidate/', import.meta.url))))
-const dest = resolve(option('--out', join(tmpdir(), 'bccli-next-0.5.0-rc.4')))
-const version = '0.5.0-rc.4'
+const dest = resolve(option('--out', join(tmpdir(), 'bccli-next-0.5.0-rc.5')))
+const version = '0.5.0-rc.5'
 const name = '@botconnector/bccli'
 if (!existsSync(join(source, 'package.json'))) throw Error('No candidate source package')
 if (existsSync(dest)) throw Error('Output already exists; refuse to overwrite a previous release candidate')
@@ -43,7 +43,7 @@ for (const file of files) {
 const pkg = {
   ...original,
   name, version,
-  description:'BCCLI | BotConnector coding agent powered by Qwen Code',
+  description:'BCCLI | BotConnector multi-provider coding agent',
   bin: {bccli:'./cli.mjs'},
   files,
   publishConfig: {access:'public', tag:'next'},
