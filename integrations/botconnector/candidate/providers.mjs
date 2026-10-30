@@ -136,12 +136,12 @@ export function removeProvider(id, { env = process.env, root = providerRoot({env
     rmSync(active, {force:true})
   }
 }
-export function resolveProvider(id, { env = process.env, root = providerRoot({env}) } = {}) {
+export function resolveProvider(id, { env = process.env, root = providerRoot({env}), platform = process.platform, runner = spawnSync } = {}) {
   const info = providerDefinition(id)
   // An explicit key saved through "provider add" must win over stale environment
   // variables. Never silently fall back if the encrypted file is corrupted.
   let key
-  try { key = storedProviderKey(id, {root}) }
+  try { key = storedProviderKey(id, {root, platform, runner}) }
   catch (error) {
     if (error?.message !== 'Provider not configured. Run provider add.') throw error
     key = id === 'botconnector' ? botConnectorKey({env}) : env[info.env]?.trim()
