@@ -13,6 +13,19 @@ test('accepts only deliberately supported commands and flags', () => {
   assert.deepEqual(parseArgs(['resume', '--model', 'ling-3.0-flash', 'continue']), {command:'resume',model:'ling-3.0-flash',json:false,prompt:'continue'})
 })
 
+test('public -p headless text alias preserves candidate safety and explicit model', () => {
+  assert.deepEqual(parseArgs(['-p','explain code']), {command:'run',model:undefined,json:false,prompt:'explain code'})
+  assert.deepEqual(parseArgs(['--print','--model','ling-3.0-flash','check']), {command:'run',model:'ling-3.0-flash',json:false,prompt:'check'})
+  assert.deepEqual(parseArgs(['-m','ling-3.0-flash','-p','check']), {command:'run',model:'ling-3.0-flash',json:false,prompt:'check'})
+  assert.deepEqual(parseArgs(['run','-p','hello']), {command:'run',model:undefined,json:false,prompt:'hello'})
+  assert.throws(() => parseArgs(['-p']), /Use: run/)
+  assert.throws(() => parseArgs(['-p','--print','prompt']), /only once/)
+  assert.throws(() => parseArgs(['chat','-p','prompt']), /only supports a single headless run/)
+  assert.throws(() => parseArgs(['models','-p','prompt']), /only supports a single headless run/)
+  assert.throws(() => parseArgs(['-p','--output-format','json','prompt']), /Unsupported option/)
+  assert.throws(() => parseArgs(['login','-p']), /No AI request was sent/)
+})
+
 test('unsupported public BCCLI commands cannot turn into chargeable model prompts', () => {
   for (const name of [
     'login','logout','provider','mcp','connect','disconnect','integrations',
