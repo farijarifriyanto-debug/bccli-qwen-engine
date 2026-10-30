@@ -34,6 +34,22 @@ const PUBLIC_ONLY_COMMANDS = new Set([
 
 export function parseArgs(argv) {
   const args = [...argv]
+  // Public BCCLI accepts options before subcommands. This candidate does
+  // not: reject those spellings rather than accidentally charging for a
+  // prompt such as "-m ling login" or "-m ling models".
+  if (!args.includes('-p') && !args.includes('--print') && !ALLOWED.has(args[0])) {
+    let firstWord
+    for (let i = 0; i < args.length; i++) {
+      const flag = args[i]
+      if (flag === '--model' || flag === '-m' || flag === '--mcp-config') { i++; continue }
+      if (flag.startsWith('-')) continue
+      firstWord = flag
+      break
+    }
+    if (firstWord && (PUBLIC_ONLY_COMMANDS.has(firstWord) || ALLOWED.has(firstWord))) {
+      throw Error('Subcommand "' + firstWord + '" must come first in this candidate. No AI request was sent.')
+    }
+  }
   // Check old public subcommands BEFORE rewriting -p to run: otherwise
   // "login -p" might accidentally become a billable model prompt.
   if (args.length && PUBLIC_ONLY_COMMANDS.has(args[0])) {
