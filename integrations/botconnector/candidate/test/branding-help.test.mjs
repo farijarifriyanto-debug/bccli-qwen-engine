@@ -12,6 +12,7 @@ test('bccli help uses the product identity without rewriting engine behavior', (
   assert.match(result.stdout, /BCCLI \| BotConnector Coding Agent/)
   assert.match(result.stdout, /\bbccli provider list\|add\|use\|remove\b/)
   assert.match(result.stdout, /\bbccli chat --provider ID --model MODEL_ID\b/)
-  assert.doesNotMatch(result.stdout, /bccli-preview|isolated coding agent candidate/i)
+  assert.doesNotMatch(result.stdout, /(?:^|\n)\s*bccli-preview\b|isolated coding agent candidate/i)
+  assert.ok(result.stdout.includes('~/.bccli-preview/'), 'user configuration directory must not be renamed')
   assert.equal(result.stderr, '')
 })
