@@ -34,3 +34,14 @@ test('Ink and OpenTUI titles update without modifying non-brand fields', () => {
   assert.ok(summary.includes('bccli -c (latest session in this project)'))
   assert.throws(() => patchUiChunk('chunks/startInteractiveUI-CECFAXVK.js', 'different'), /unsupported/)
 })
+
+test('server/agent identity copy stays neutral, strict, and does not impersonate the selected AI', () => {
+  const original = 'prefix var DEFAULT_INSTRUCTIONS=`## Identity, tone, and role You are Qwen Code, a general-purpose agentic assistant that helps the user complete tasks.` suffix'
+  const patched = patchUiChunk('chunks/server-SJNWHHV4.js', original)
+  assert.match(patched, /You are a general-purpose agentic assistant/)
+  assert.doesNotMatch(patched, /You are Qwen Code/)
+  assert.doesNotMatch(patched, /You are BCCLI/)
+  assert.ok(patched.startsWith('prefix '))
+  assert.ok(patched.endsWith(' suffix'))
+  assert.throws(() => patchUiChunk('chunks/server-SJNWHHV4.js', 'upstream changed'), /unsupported/)
+})
