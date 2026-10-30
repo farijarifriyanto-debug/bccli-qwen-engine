@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { DEFAULT_MODEL, assertCandidateRuntimeSupported, discoverModels, launchQwen, parseArgs, resolveQwenEntrypoint, resolveTrustedMcpConfig, selectModel } from './core.mjs'
 import { prepareBrandedQwen } from './branding.mjs'
-import { botConnectorKey } from './credentials.mjs'
+import { botConnectorKey, botConnectorCredentialStatus } from './credentials.mjs'
 
 function help() {
   console.log([
@@ -14,6 +14,8 @@ function help() {
     '  bccli-qwen-candidate --version',
     '  bccli-qwen-candidate chat [--model MODEL] [--mcp-config OWNER_CONFIG_PATH]',
     '  bccli-qwen-candidate resume [--model MODEL] [prompt]',
+    '  bccli-qwen-candidate -c [-m MODEL] [prompt]  (resume current project)',
+    '  bccli-qwen-candidate auth status  (offline; does not print API key)',
     '',
     'Credentials: existing bccli login (bc-cloud), or BOTCONNECTOR_API_KEY environment override.',
     'Model choice: --model, BOTCONNECTOR_MODEL_ID, otherwise ling-3.0-flash (must exist in Gateway /models).',
@@ -35,6 +37,19 @@ async function main() {
     return 0
   }
   const args = parseArgs(argv)
+  if (args.command === 'auth') {
+    const status = botConnectorCredentialStatus()
+    if (status.configured) {
+      console.log('BotConnector credential configured via ' +
+        (status.source === 'environment' ? 'BOTCONNECTOR_API_KEY environment variable.' : 'existing public BCCLI bc-cloud login.') +
+        ' Not verified online. No AI request was sent.')
+      return 0
+    }
+    console.error('BotConnector credential not configured or unreadable. ' +
+      'Use the existing public "bccli login bc-cloud" or set BOTCONNECTOR_API_KEY. ' +
+      'No credential was changed and no AI request was sent.')
+    return 1
+  }
   if (args.command !== 'models') assertCandidateRuntimeSupported() // Avoid network/key reads before compatibility check.
   const key = botConnectorKey()
   const models = await discoverModels({ key })
