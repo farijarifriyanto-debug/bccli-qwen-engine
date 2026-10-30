@@ -17,7 +17,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-2PLSL3VQ.js': 'f475f043f1ab8314a64699ebb45e43026bb1a1fe65f1ac259f1898afb8a6c5d9',
   'chunks/chunk-ERV2ECV3.js': '7d2511a8317ee2c44edd2fd62b43966b9acfbfaac79175cd0cc9fb9ed42051c6',
 })
-const BRAND_REVISION = 'bccli-white-label-20261029-v9-permission-errors'
+const BRAND_REVISION = 'bccli-new-20261030-provider-modal-v1'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -58,7 +58,7 @@ export function guardUpstreamProviderCommands(text) {
     {
       command: 'auth',
       detect: 'dialog:"auth"',
-      code: 'var authCommand={name:"auth",altNames:["connect","login"],get description(){return "BotConnector Gateway connection (managed by BCCLI)"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(()=>({type:"message",messageType:"info",content:"Connected through the BotConnector Gateway. BCCLI manages API credentials and upstream routing. Use your existing bccli login (bc-cloud), or set BOTCONNECTOR_API_KEY as an override before starting BCCLI. Restart the session after changing credentials. Run the BCCLI launcher models command to list authorized models."}),"action")};',
+      code: 'var authCommand={name:"auth",altNames:["connect","login","provider"],get description(){return "Choose provider, add API key and select a model in BCCLI"},kind:"built-in",supportedModes:["interactive"],action:__name((context)=>{if(context.executionMode && context.executionMode!=="interactive")return{type:"message",messageType:"error",content:"Provider switching requires an interactive terminal."};process.exit(51)},"action")};',
     },
     {
       command: 'model',

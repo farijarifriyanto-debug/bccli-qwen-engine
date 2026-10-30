@@ -5,6 +5,7 @@ import { prepareBrandedQwen } from './branding.mjs'
 import { botConnectorCredentialStatus } from './credentials.mjs'
 import { resolveProvider, selectedProvider, providerDefinition } from './providers.mjs'
 import { runProviderCommand } from './provider-cli.mjs'
+import { startupMenu, PROVIDER_SWITCH_EXIT } from './startup-menu.mjs'
 
 function help() {
   console.log([
@@ -21,6 +22,8 @@ function help() {
     '  bccli-preview provider list|add|use|remove [ID]  (manage provider keys)',
     '  bccli-preview models --provider ID  (list models for provider)',
     '  bccli-preview chat --provider ID --model MODEL_ID',
+    '  bccli  (new local BCCLI with interactive provider and model setup)',
+    '  During chat: /provider or /auth to reopen provider and key picker.',
     '',
     'Credentials: existing BotConnector login or encrypted per-user provider API keys (Windows).',
     'Provider choices: botconnector, openai, openrouter, deepseek, groq, xai.',
@@ -58,24 +61,48 @@ async function main() {
       'No credential was changed and no AI request was sent.')
     return 1
   }
-  if (args.command !== 'models') assertCandidateRuntimeSupported() // Avoid network/key reads before compatibility check.
-  const providerId = args.provider ?? selectedProvider()
-  const selected = resolveProvider(providerId)
-  const { key, endpoint } = selected
-  const models = await discoverModels({ key, endpoint })
+  if (args.command !== 'models') assertCandidateRuntimeSupported()
   if (args.command === 'models') {
+    const profile = resolveProvider(args.provider ?? selectedProvider())
+    const models = await discoverModels({ key: profile.key, endpoint: profile.endpoint })
     if (args.json) console.log(JSON.stringify({ data: models }, null, 2))
     else models.forEach((item) => console.log(item.id))
     return 0
   }
-  const requested = args.model ?? (providerId === 'botconnector' ? (process.env.BOTCONNECTOR_MODEL_ID ?? DEFAULT_MODEL) : undefined)
-  if (!requested) throw Error('Use --model MODEL_ID for ' + providerId + '. Run bccli-preview models first.')
-  const model = selectModel(models, requested)
-  if (!args.prompt && !process.stdin.isTTY) throw Error('Interactive mode requires a TTY; use run "prompt".')
+  if (!args.prompt && !process.stdin.isTTY) throw Error('Interactive mode requires a TTY; use -p "prompt".')
   const mcpConfig = resolveTrustedMcpConfig(args.mcpConfig)
+  let chosen
+  const showPicker = args.command === 'chat' && !args.prompt && !args.model
+  if (showPicker) {
+    chosen = await startupMenu({
+      ...(args.provider ? { currentProvider: () => args.provider } : {}),
+    })
+  } else {
+    const providerId = args.provider ?? selectedProvider()
+    const profile = resolveProvider(providerId)
+    const models = await discoverModels({ key: profile.key, endpoint: profile.endpoint })
+    const requested = args.model ??
+      (providerId === 'botconnector' ? (process.env.BOTCONNECTOR_MODEL_ID ?? DEFAULT_MODEL) : undefined)
+    if (!requested) throw Error('Use --model MODEL_ID for ' + providerId + '.')
+    chosen = { providerId, model: selectModel(models, requested), key: profile.key, endpoint: profile.endpoint }
+  }
   const entrypoint = prepareBrandedQwen(resolveQwenEntrypoint())
-  console.log('BCCLI Preview | Provider: ' + providerDefinition(providerId).name + ' | Model: ' + model)
-  return launchQwen({ key, model, prompt: args.prompt, mcpConfig, entrypoint, upstream: endpoint, providerId, continueSession: args.command === 'resume' })
+  let continueSession = args.command === 'resume'
+  for (;;) {
+    console.log('BCCLI | ' + providerDefinition(chosen.providerId).name + ' | ' + chosen.model)
+    const code = await launchQwen({
+      key: chosen.key, model: chosen.model, prompt: args.prompt,
+      mcpConfig, entrypoint, upstream: chosen.endpoint,
+      providerId: chosen.providerId, continueSession,
+    })
+    if (code !== PROVIDER_SWITCH_EXIT) return code
+    if (args.prompt || !process.stdin.isTTY) throw Error('Provider menu requires an interactive terminal.')
+    // /provider and /auth close the current engine cleanly, then the parent
+    // asks for a key and model. Keys never enter the Qwen agent process.
+    const previousProvider = chosen.providerId
+    chosen = await startupMenu()
+    continueSession = previousProvider === chosen.providerId
+  }
 }
 
 main().then((code) => { process.exitCode = code }, (error) => {

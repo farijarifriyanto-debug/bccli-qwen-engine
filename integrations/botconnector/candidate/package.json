@@ -1,8 +1,8 @@
 {
     "name":  "@botconnector/bccli-preview",
     "private":  true,
-    "version":  "0.1.0-rc.2",
-    "description":  "BCCLI Preview | BotConnector and other OpenAI-compatible providers with encrypted keys",
+    "version":  "0.1.0-rc.3",
+    "description":  "BCCLI New Engine | built-in interactive provider key and model menu",
     "type":  "module",
     "bin":  {
                 "bccli-preview":  "./cli.mjs"
@@ -17,7 +17,7 @@
                     "test":  "node --test test/*.test.mjs",
                     "test:security":  "node --test test/security-e2e.test.mjs test/proxy-mcp-e2e.test.mjs test/trusted-mcp.test.mjs test/proxy.test.mjs",
                     "test:integration":  "node --test test-integration/*.test.mjs",
-                    "build":  "node --check cli.mjs \u0026\u0026 node --check core.mjs \u0026\u0026 node --check proxy.mjs \u0026\u0026 node --check gateway.mjs \u0026\u0026 node --check branding.mjs \u0026\u0026 node --check credentials.mjs \u0026\u0026 node --check model-command.mjs \u0026\u0026 node --check providers.mjs \u0026\u0026 node --check provider-cli.mjs",
+                    "build":  "node --check cli.mjs \u0026\u0026 node --check core.mjs \u0026\u0026 node --check proxy.mjs \u0026\u0026 node --check gateway.mjs \u0026\u0026 node --check branding.mjs \u0026\u0026 node --check credentials.mjs \u0026\u0026 node --check model-command.mjs \u0026\u0026 node --check providers.mjs \u0026\u0026 node --check provider-cli.mjs \u0026\u0026 node --check startup-menu.mjs",
                     "rebuild":  "npm run build \u0026\u0026 npm test \u0026\u0026 npm pack --ignore-scripts"
                 },
     "license":  "Apache-2.0",
@@ -35,7 +35,8 @@
                   "credentials.mjs",
                   "model-command.mjs",
                   "providers.mjs",
-                  "provider-cli.mjs"
+                  "provider-cli.mjs",
+                  "startup-menu.mjs"
               ],
     "repository":  {
                        "type":  "git",
