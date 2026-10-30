@@ -5,6 +5,7 @@ import { homedir } from 'node:os'
 import { readFileSync, realpathSync, lstatSync } from 'node:fs'
 import { dirname, join, isAbsolute } from 'node:path'
 import { startGatewayProxy } from './proxy.mjs'
+import { writeLegacyStructuredOutput } from './output-compat.mjs'
 import { GATEWAY } from './gateway.mjs'
 
 export { GATEWAY } from './gateway.mjs'
@@ -248,20 +249,27 @@ export function resolveQwenEntrypoint() {
   return join(dirname(require.resolve('@qwen-code/qwen-code/package.json')), 'cli-entry.js')
 }
 
-export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, resumeSession = false, sessionId, acp = false, outputFormat, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
+export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, resumeSession = false, sessionId, acp = false, outputFormat, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy, stdout = process.stdout }) {
   // The real API key never enters Qwen, its tools, or any MCP child process.
   // Only this launcher retains it while the ephemeral proxy is running.
   const proxy = await proxyFactory({ key, endpoint: upstream })
   try {
     const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, resumeSession, sessionId, acp, outputFormat })]
+    const structured = outputFormat === 'json' || outputFormat === 'stream-json'
     const child = spawnImpl(process.execPath, args, {
       cwd: process.cwd(), env: childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl, providerId }),
-      stdio: 'inherit', windowsHide: false, shell: false,
+      stdio: structured ? ['inherit', 'pipe', 'inherit'] : 'inherit', windowsHide: false, shell: false,
     })
-    return await new Promise((resolve, reject) => {
+    const exitPromise = new Promise((resolve, reject) => {
       child.once('error', reject)
       child.once('exit', (code, signal) => resolve(code ?? (signal ? 130 : 1)))
     })
+    const outputPromise = structured
+      ? writeLegacyStructuredOutput(child.stdout, { outputFormat, providerId, model, output: stdout })
+        .catch((error) => { child.kill?.(); throw error })
+      : Promise.resolve()
+    const [code] = await Promise.all([exitPromise, outputPromise])
+    return code
   } finally {
     await proxy.close()
   }
