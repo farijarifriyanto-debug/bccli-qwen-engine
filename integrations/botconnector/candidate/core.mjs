@@ -34,6 +34,17 @@ const PUBLIC_ONLY_COMMANDS = new Set([
 
 export function parseArgs(argv) {
   const args = [...argv]
+  // Keep public BCCLI's common noninteractive invocation as a safe alias.
+  // Do not imply parity with public JSON/stream-json or -r session picking.
+  const printIndexes = args.flatMap((arg, i) => arg === '-p' || arg === '--print' ? [i] : [])
+  if (printIndexes.length > 1) throw Error('Specify -p / --print only once.')
+  if (printIndexes.length === 1) {
+    args.splice(printIndexes[0], 1)
+    if (ALLOWED.has(args[0]) && args[0] !== 'run') {
+      throw Error('-p / --print only supports a single headless run, not ' + args[0] + '.')
+    }
+    if (args[0] !== 'run') args.unshift('run')
+  }
   if (args.length && PUBLIC_ONLY_COMMANDS.has(args[0])) {
     throw Error('Command "' + args[0] + '" is available only in public BCCLI 0.4.17, not this isolated candidate. No AI request was sent.')
   }
