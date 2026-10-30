@@ -54,7 +54,7 @@ jobs:
         run: |
           $dir = Join-Path $env:RUNNER_TEMP 'bccli-rc3-test-install'
           New-Item -ItemType Directory -Path $dir | Out-Null
-          $tgz = Join-Path (Join-Path $env:RUNNER_TEMP 'bccli-rc2-testpack') 'botconnector-bccli-0.5.0-rc.3.tgz'
+          $tgz = Join-Path (Join-Path $env:RUNNER_TEMP 'bccli-rc3-testpack') 'botconnector-bccli-0.5.0-rc.3.tgz'
           Push-Location $dir
           try {
             & npm install --ignore-scripts --no-audit --no-fund $tgz
