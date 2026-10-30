@@ -69,7 +69,7 @@ export function parseArgs(argv) {
     args.unshift('resume')
   }
   // Keep public BCCLI's common noninteractive invocation as a safe alias.
-  // Do not imply parity with public JSON/stream-json or -r session picking.
+  // Structured output parity is tracked separately; session picker is handled explicitly.
   const printIndexes = args.flatMap((arg, i) => arg === '-p' || arg === '--print' ? [i] : [])
   if (printIndexes.length > 1) throw Error('Specify -p / --print only once.')
   if (printIndexes.length === 1) {
