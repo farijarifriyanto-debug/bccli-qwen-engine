@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs'
 import { DEFAULT_MODEL, assertCandidateRuntimeSupported, discoverModels, launchQwen, parseArgs, resolveQwenEntrypoint, resolveTrustedMcpConfig, selectModel } from './core.mjs'
 import { prepareBrandedQwen } from './branding.mjs'
 import { botConnectorKey } from './credentials.mjs'
@@ -9,6 +10,8 @@ function help() {
     'Usage:',
     '  bccli-qwen-candidate models [--json]',
     '  bccli-qwen-candidate run --model MODEL "prompt" [--mcp-config OWNER_CONFIG_PATH]',
+    '  bccli-qwen-candidate -p "prompt" [-m MODEL]  (text-only headless alias)',
+    '  bccli-qwen-candidate --version',
     '  bccli-qwen-candidate chat [--model MODEL] [--mcp-config OWNER_CONFIG_PATH]',
     '  bccli-qwen-candidate resume [--model MODEL] [prompt]',
     '',
@@ -16,6 +19,7 @@ function help() {
     'Model choice: --model, BOTCONNECTOR_MODEL_ID, otherwise ling-3.0-flash (must exist in Gateway /models).',
     'Security: fixed BotConnector endpoint, ephemeral local token, --bare and default approvals.',
     'MCP: explicit JSON only, directly under ~/.bccli-qwen-candidate/ (no project configs).',
+    'Text-only -p alias; public --output-format JSON/stream-json and -r picker are not yet supported.',
     'Not a replacement for the currently published bccli command.',
   ].join('\n'))
 }
@@ -24,6 +28,12 @@ async function main() {
   const argv = process.argv.slice(2)
   if (argv.length === 0 && !process.stdin.isTTY) { help(); return 2 }
   if (argv[0] === '--help' || argv[0] === '-h' || argv[0] === 'help') { help(); return 0 }
+  if (argv.length === 1 && (argv[0] === '--version' || argv[0] === '-v')) {
+    // Offline informational command: never inspect credentials or contact Gateway.
+    const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+    console.log(pkg.version)
+    return 0
+  }
   const args = parseArgs(argv)
   if (args.command !== 'models') assertCandidateRuntimeSupported() // Avoid network/key reads before compatibility check.
   const key = botConnectorKey()
