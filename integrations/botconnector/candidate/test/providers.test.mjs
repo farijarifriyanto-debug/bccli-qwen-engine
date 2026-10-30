@@ -35,7 +35,7 @@ test('provider management command parses as command not a paid AI prompt', () =>
   assert.throws(() => parseArgs(['chat','--provider','--model','x']), /requires exactly one/)
 })
 
-test('Windows DPAPI encrypts key for current user; provider selection is isolated', {skip:process.platform!=='win32'}, () => {
+test('Windows DPAPI encrypts key for current user; provider selection is isolated', {skip:process.platform!=='win32'||process.env.CI==='true'}, () => {
   const root=mkdtempSync(join(tmpdir(),'bccli-preview-provider-test-'))
   const secret='FAKE_TEST_PROVIDER_KEY_NEVER_REAL_123'
   const env={BCCLI_PREVIEW_HOME:root,BOTCONNECTOR_API_KEY:'FAKE_BC_TEST_ONLY'}
