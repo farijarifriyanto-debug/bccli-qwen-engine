@@ -37,7 +37,7 @@ export function parseArgs(argv) {
   // Public BCCLI accepts options before subcommands. This candidate does
   // not: reject those spellings rather than accidentally charging for a
   // prompt such as "-m ling login" or "-m ling models".
-  if (!args.includes('-p') && !args.includes('--print') && !ALLOWED.has(args[0])) {
+  if (!args.includes('-p') && !args.includes('--print') && !args.includes('-c') && !args.includes('--continue') && !ALLOWED.has(args[0])) {
     let firstWord
     for (let i = 0; i < args.length; i++) {
       const flag = args[i]
