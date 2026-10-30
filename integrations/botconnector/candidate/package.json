@@ -1,50 +1,51 @@
 {
-    "name":  "@botconnector/bccli-preview",
-    "private":  true,
-    "version":  "0.1.0-rc.3",
-    "description":  "BCCLI New Engine | built-in interactive provider key and model menu",
-    "type":  "module",
-    "bin":  {
-                "bccli-preview":  "./cli.mjs"
-            },
-    "engines":  {
-                    "node":  "\u003e=22"
-                },
-    "dependencies":  {
-                         "@qwen-code/qwen-code":  "0.26.3"
-                     },
-    "scripts":  {
-                    "test":  "node --test test/*.test.mjs",
-                    "test:security":  "node --test test/security-e2e.test.mjs test/proxy-mcp-e2e.test.mjs test/trusted-mcp.test.mjs test/proxy.test.mjs",
-                    "test:integration":  "node --test test-integration/*.test.mjs",
-                    "build":  "node --check cli.mjs \u0026\u0026 node --check core.mjs \u0026\u0026 node --check proxy.mjs \u0026\u0026 node --check gateway.mjs \u0026\u0026 node --check branding.mjs \u0026\u0026 node --check credentials.mjs \u0026\u0026 node --check model-command.mjs \u0026\u0026 node --check providers.mjs \u0026\u0026 node --check provider-cli.mjs \u0026\u0026 node --check startup-menu.mjs",
-                    "rebuild":  "npm run build \u0026\u0026 npm test \u0026\u0026 npm pack --ignore-scripts"
-                },
-    "license":  "Apache-2.0",
-    "overrides":  {
-                      "sharp":  "0.35.5"
-                  },
-    "files":  [
-                  "LICENSE",
-                  "THIRD_PARTY_NOTICES.md",
-                  "cli.mjs",
-                  "core.mjs",
-                  "proxy.mjs",
-                  "gateway.mjs",
-                  "branding.mjs",
-                  "credentials.mjs",
-                  "model-command.mjs",
-                  "providers.mjs",
-                  "provider-cli.mjs",
-                  "startup-menu.mjs"
-              ],
-    "repository":  {
-                       "type":  "git",
-                       "url":  "git+https://github.com/farijarifriyanto-debug/bccli-qwen-engine.git"
-                   },
-    "homepage":  "https://github.com/farijarifriyanto-debug/bccli#readme",
-    "bugs":  {
-                 "url":  "https://github.com/farijarifriyanto-debug/bccli/issues"
-             },
-    "author":  "BICO Inovasi Digital / BotConnector"
+  "name": "@botconnector/bccli-preview",
+  "private": true,
+  "version": "0.1.0-rc.3",
+  "description": "BCCLI New Engine | built-in interactive provider key and model menu",
+  "type": "module",
+  "bin": {
+    "bccli-preview": "./cli.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@qwen-code/qwen-code": "0.26.3"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "test:security": "node --test test/security-e2e.test.mjs test/proxy-mcp-e2e.test.mjs test/trusted-mcp.test.mjs test/proxy.test.mjs",
+    "test:integration": "node --test test-integration/*.test.mjs",
+    "build": "node --check cli.mjs && node --check core.mjs && node --check proxy.mjs && node --check gateway.mjs && node --check branding.mjs && node --check credentials.mjs && node --check model-command.mjs && node --check providers.mjs && node --check provider-cli.mjs && node --check startup-menu.mjs && node --check output-compat.mjs",
+    "rebuild": "npm run build && npm test && npm pack --ignore-scripts"
+  },
+  "license": "Apache-2.0",
+  "overrides": {
+    "sharp": "0.35.5"
+  },
+  "files": [
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "cli.mjs",
+    "core.mjs",
+    "proxy.mjs",
+    "gateway.mjs",
+    "branding.mjs",
+    "credentials.mjs",
+    "model-command.mjs",
+    "providers.mjs",
+    "provider-cli.mjs",
+    "startup-menu.mjs",
+    "output-compat.mjs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/farijarifriyanto-debug/bccli-qwen-engine.git"
+  },
+  "homepage": "https://github.com/farijarifriyanto-debug/bccli#readme",
+  "bugs": {
+    "url": "https://github.com/farijarifriyanto-debug/bccli/issues"
+  },
+  "author": "BICO Inovasi Digital / BotConnector"
 }
