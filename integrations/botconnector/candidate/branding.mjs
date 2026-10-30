@@ -16,6 +16,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-OV3EBH6J.js': '3b20ea65e93e6ee00625f9d86906c3d28c45529b4b4dbe72dc050bdae3904505',
   'chunks/chunk-W3YCOEIP.js': '02828393f6e477a7f36cecff876a6af2d36ece3eb838fceb096d9245eb7fc5f7',
   'chunks/chunk-7L4WTOM2.js': '4d8053c956cc7881b7f87ae2c0e96bf1adc942a37ac37de3d76eaeb9367041fc',
+  'chunks/chunk-Y6HHV4LC.js': '7ae347a288e5fe60ef37a66485527502db3dd7112207ea4b683ada0bda47952c',
   'chunks/chunk-QUFSNRKR.js': 'f52e1917c7956b02208b39982bbf7b45fb52c294418ebd93f7f2f0677c1aaa2d',
   'chunks/chunk-2PLSL3VQ.js': 'f475f043f1ab8314a64699ebb45e43026bb1a1fe65f1ac259f1898afb8a6c5d9',
   'chunks/chunk-ERV2ECV3.js': '7d2511a8317ee2c44edd2fd62b43966b9acfbfaac79175cd0cc9fb9ed42051c6',
@@ -31,7 +32,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-B3ZFUGTC.js': 'f3f57aafbaeab56ca58f5d3173751d30e5fef815aeaf8dc9b46e6ea9e85eb528',
   'chunks/chunk-GGVWG4SI.js': '945c7f4e9b3697003c165b7bc5d007c9b87140d1fad7be084d7b253d8d2b476c',
 })
-const BRAND_REVISION = 'bccli-new-20261031-product-surfaces-sweep-v11'
+const BRAND_REVISION = 'bccli-new-20261031-agents-md-first-v12'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -201,6 +202,16 @@ function renameProductLanguage(text) {
 }
 
 export function patchUiChunk(file, text) {
+  if (file === 'chunks/chunk-Y6HHV4LC.js') {
+    // Keep both context formats available and prioritize the vendor-neutral
+    // AGENTS.md for all new sessions and /init. This controls file loading,
+    // not just the text shown in the terminal.
+    return replaceOnce(
+      text,
+      'var currentMemoryFilename=[DEFAULT_CONTEXT_FILENAME,AGENT_CONTEXT_FILENAME];',
+      'var currentMemoryFilename=[AGENT_CONTEXT_FILENAME,DEFAULT_CONTEXT_FILENAME];',
+      'AGENTS.md preferred context and backward-compatible QWEN.md fallback')
+  }
   if ([
     'chunks/acpAgent-U6TCKYWP.js',
     'chunks/chunk-2MB4ZSKF.js',
@@ -370,6 +381,17 @@ export function patchUiChunk(file, text) {
       'You are an AI coding assistant operating in a terminal.',
       'neutral project initialization prompt')
     result = guardUpstreamProviderCommands(result)
+    // Test snippets may omit /init; full pinned engine has it.
+    if (result.includes('var initCommand=')) {
+      result = replaceOnce(result,
+        'Analyzes the project and creates a tailored QWEN.md file.',
+        'Analyzes the project and creates an AGENTS.md instruction file.',
+        '/init project instruction file description')
+      result = replaceOnce(result,
+        'Successfully added QWEN.md files from the following directories if there are:',
+        'Successfully loaded project instruction files from the following directories:',
+        'instruction file refresh message')
+    }
     result = replaceOnce(result,
       'get description(){return t("for help on Qwen Code")}',
       'get description(){return t("BCCLI help and keyboard shortcuts")}',
