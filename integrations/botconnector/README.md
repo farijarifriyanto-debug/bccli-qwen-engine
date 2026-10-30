@@ -380,3 +380,12 @@ Owner authorized live Gateway testing. On the owner's Windows machine the **isol
 
 ### Status
 **Live Kimi inference PASS with the new candidate**, and in-session Kimi switching PASS. Candidate remains Draft/HOLD pending product release review, plan/PAYG billing reconciliation, privacy/retention verification, and the final integration/regression check. Existing global BCCLI 0.4.17 remains unchanged.
+
+
+## 2026-10-30 independent release audit — Node24 Windows / packaging (HOLD)
+
+- Candidate isolated Windows / Node.js **24.18.0**: `npm test` **38/38 PASS**.
+- Existing `@qwen-code/qwen-code@0.26.3` engine with local fake-key Gateway in Node.js **22.23.4**: upstream-backed `test:integration` **4/4 PASS**, clean exit 0.
+- Node.js **24.18.0**: the identical full integration suite **3/4 PASS**; `tool-loop-e2e.test.mjs` fails again when run alone, after successful tool-call completion, with exit code `3221226505` and a Windows libuv `UV_HANDLE_CLOSING` assertion. Node24 one-shot and `/quit` success does not prove full Node24 tool-loop stability. The root cause has not been isolated between upstream engine and runtime interaction. **Do not replace public BCCLI until resolved or a clear supported-runtime policy is shipped.**
+- The npm `pack --dry-run` initially omitted an explicit LICENSE and third-party attribution. The candidate PR now includes `candidate/LICENSE` (upstream Apache-2.0), `candidate/THIRD_PARTY_NOTICES.md`, and their inclusion in `package.json`. Repeat a fresh pack and isolated install on the updated branch before release.
+- Public `@botconnector/bccli@0.4.17` currently exposes significantly more CLI functionality than this isolated `models/run/chat/resume` candidate; provide feature-by-feature parity and voluntary migration with rollback before any public package replacement. `--bare` deliberately disables implicit project config, skills, hooks and MCP discovery. No unattended migration, production Gateway change or npm publish was carried out in this audit.
