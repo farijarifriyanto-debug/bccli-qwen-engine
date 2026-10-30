@@ -1,5 +1,5 @@
 // BCCLI white-label view overlay for the pinned upstream Qwen package.
-// Never mutate the original npm dependency or weaken --bare isolation.
+// Keep the original npm engine untouched; pin the BCCLI transport to its isolated proxy.
 import { createHash } from 'node:crypto'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
@@ -356,12 +356,40 @@ export function patchUiChunk(file, text) {
       'var DEFAULT_BARE_CORE_TOOLS=[ToolNames.READ_FILE,ToolNames.EDIT,ToolNames.NOTEBOOK_EDIT,ToolNames.SHELL];',
       'var DEFAULT_BARE_CORE_TOOLS=[ToolNames.READ_FILE,ToolNames.EDIT,ToolNames.NOTEBOOK_EDIT,ToolNames.SHELL,ToolNames.WRITE_FILE,ToolNames.GLOB,ToolNames.GREP,"apply_patch"];',
       'enable safe built-in file create/find/grep under isolated bare mode')
+    // Keep compatibility with isolated bare-mode fixtures, while the default
+    // BCCLI launcher now uses the full upstream registry.
     // Bare mode has a separate registry branch; updating the core allowlist
     // alone is insufficient. Register the already-vendored implementations.
     result = replaceOnce(result,
       'await registerLazy(ToolNames.SHELL,async()=>{const{ShellTool:ShellTool2}=await import("./shell-MESMTEQS.js");return new ShellTool2(this)});await registerGoalWorkerTools();await registerStructuredOutputIfRequested();',
       'await registerLazy(ToolNames.SHELL,async()=>{const{ShellTool:ShellTool2}=await import("./shell-MESMTEQS.js");return new ShellTool2(this)});await registerLazy(ToolNames.WRITE_FILE,async()=>{const{WriteFileTool}=await import("./write-file-2A6M6WGQ.js");return new WriteFileTool(this)});await registerLazy(ToolNames.GLOB,async()=>{const{GlobTool}=await import("./glob-YYAAZG3O.js");return new GlobTool(this)});await registerLazy(ToolNames.GREP,async()=>{const{GrepTool}=await import("./grep-ZPVNGCCV.js");return new GrepTool(this)});await registerLazy("apply_patch",async()=>{const{ApplyPatchTool}=await import("./bccli-apply-patch-tool.mjs");return new ApplyPatchTool(this)});await registerGoalWorkerTools();await registerStructuredOutputIfRequested();',
       'register missing bare-mode write_file glob and grep_search tool instances')
+    }
+    // A workspace can define modelProviders with higher priority than CLI
+    // --openai-base-url in upstream Qwen Code. In BCCLI, force the OpenAI
+    // transport to our localhost proxy and its expiring session token.
+    // Other upstream engine features remain untouched.
+    if (result.includes('function resolveModelConfig(input){')) {
+      result = replaceOnce(result,
+        'const apiKeyLayers=[];if(authType&&modelProvider?.envKey)',
+        'const apiKeyLayers=[];if(process.env.BCCLI_ACTIVE_PROVIDER&&authType==="openai"){apiKeyLayers.push(envLayer(env,"OPENAI_API_KEY"))}if(authType&&modelProvider?.envKey)',
+        'pin BCCLI proxy token ahead of user and project modelProviders')
+      result = replaceOnce(result,
+        'const baseUrlLayers=[];if(authType&&modelProvider?.baseUrl)',
+        'const baseUrlLayers=[];if(process.env.BCCLI_ACTIVE_PROVIDER&&authType==="openai"){baseUrlLayers.push(envLayer(env,"OPENAI_BASE_URL"))}if(authType&&modelProvider?.baseUrl)',
+        'pin BCCLI local model API endpoint ahead of project modelProviders')
+      result = replaceOnce(result,
+        'baseUrl:baseUrlResult?.value,proxy,...generationConfig',
+        'baseUrl:baseUrlResult?.value,proxy:process.env.BCCLI_ACTIVE_PROVIDER?void 0:proxy,...generationConfig',
+        'prevent project proxy configuration from diverting BCCLI model traffic')
+    }
+    // In full mode all upstream tools stay available. Also register the BCCLI
+    // read-before-patch tool alongside the upstream file and shell tools.
+    if (result.includes('await registerLazy(ToolNames.REPORT_FINDINGS,async()=>')) {
+      result = replaceOnce(result,
+        'await registerLazy(ToolNames.REPORT_FINDINGS,async()=>{const{ReportFindingsTool}=await import("./report-findings-W4ARGZWM.js");return new ReportFindingsTool});',
+        'await registerLazy("apply_patch",async()=>{const{ApplyPatchTool}=await import("./bccli-apply-patch-tool.mjs");return new ApplyPatchTool(this)});await registerLazy(ToolNames.REPORT_FINDINGS,async()=>{const{ReportFindingsTool}=await import("./report-findings-W4ARGZWM.js");return new ReportFindingsTool});',
+        'register BCCLI atomic apply_patch in full engine mode')
     }
     return renameProductLanguage(replaceExactly(result,
       'Qwen Code requires permission to use ',
@@ -445,7 +473,8 @@ function validCache(target, manifest) {
 
 /**
  * Make an isolated, revision-pinned white-label copy of the upstream package.
- * No model, provider, tool, permission, or auth logic is modified.
+ * UI and the narrowly scoped BCCLI transport/tool safety overrides are modified
+ * only in the integrity-verified isolated copy; upstream npm bytes stay unchanged.
  * The source node_modules/@qwen-code/qwen-code package remains byte-identical.
  */
 export function prepareBrandedQwen(entrypoint, { cacheRoot } = {}) {

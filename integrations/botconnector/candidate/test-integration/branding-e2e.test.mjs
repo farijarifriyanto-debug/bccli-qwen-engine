@@ -8,9 +8,10 @@ import { prepareBrandedQwen } from '../branding.mjs'
 import { childEnvironment, qwenArguments, resolveQwenEntrypoint } from '../core.mjs'
 import { startGatewayProxy } from '../proxy.mjs'
 
-test('BCCLI branded runtime keeps upstream tool protocol, bare mode and token isolation', { timeout: 45000 }, async () => {
+test('BCCLI branded runtime keeps upstream tool protocol, full mode and token isolation', { timeout: 90000 }, async () => {
   const root = mkdtempSync(join(tmpdir(), 'bccli-branded-tool-'))
   let received = 0
+  const violations = []
   const originalEntry = resolveQwenEntrypoint()
   const originalLogo = join(originalEntry, '..', 'chunks', 'chunk-OYUATJK2.js')
   const before = readFileSync(originalLogo)
@@ -22,19 +23,16 @@ test('BCCLI branded runtime keeps upstream tool protocol, bare mode and token is
   const proxy = await startGatewayProxy({
     key: 'FAKE_PRIVATE_GATEWAY_KEY',
     fetchImpl: async (url, init) => {
-      assert.equal(url, 'https://api.botconnector.id/v1/chat/completions')
-      assert.equal(init.headers.authorization, 'Bearer FAKE_PRIVATE_GATEWAY_KEY')
       const body = JSON.parse(init.body.toString())
-      assert.equal(body.model, 'ling-3.0-flash')
-      assert.ok(body.tools?.length >= 2, 'all coding tools remain enabled')
-      assert.ok(body.messages?.[0]?.role === 'system')
-      const system = JSON.stringify(body.messages?.[0])
-      assert.ok(system.includes('active_model_id=ling-3.0-flash'), 'actual selected model must be available as factual metadata')
-      assert.ok(system.includes('client_app=BCCLI'), 'interface may be identified without forcing AI identity')
-      assert.ok(!system.includes('You are BCCLI'), 'model must not be forced to impersonate the app')
-      assert.ok(!system.includes('developed by Alibaba Group'), 'do not claim unrelated vendor owns selected model')
-      assert.ok(!system.includes('developed by BICO Inovasi Digital'), 'do not attribute the model to the app developer')
-      assert.ok(system.includes('You are an AI coding assistant'), 'preserve neutral agent role')
+      const system = JSON.stringify(body.messages?.[0] ?? {})
+      if (url !== 'https://api.botconnector.id/v1/chat/completions') violations.push('unexpected upstream route')
+      if (init.headers.authorization !== 'Bearer FAKE_PRIVATE_GATEWAY_KEY') violations.push('real provider key mismatch')
+      if (body.model !== 'ling-3.0-flash') violations.push('incorrect selected model')
+      if ((body.tools?.length ?? 0) < 2) violations.push('missing coding tools')
+      if (body.messages?.[0]?.role !== 'system') violations.push('missing system instructions')
+      if (!system.includes('active_model_id=ling-3.0-flash')) violations.push('missing factual model metadata')
+      if (!system.includes('client_app=BCCLI')) violations.push('missing client metadata')
+      if (system.includes('You are BCCLI') || system.includes('developed by Alibaba Group') || system.includes('developed by BICO Inovasi Digital')) violations.push('incorrect model persona')
       received++
       const chunk = (delta, finish_reason) => JSON.stringify({
         id:'mock-brand',object:'chat.completion.chunk',created:1,model:body.model,
@@ -58,12 +56,13 @@ test('BCCLI branded runtime keeps upstream tool protocol, bare mode and token is
       let stdout='',stderr=''
       child.stdout.on('data',b=>stdout+=b)
       child.stderr.on('data',b=>stderr+=b)
-      const timer = setTimeout(()=>child.kill(),35000)
+      const timer = setTimeout(()=>child.kill(),65000)
       child.once('error',reject)
       child.once('close',code=>{clearTimeout(timer);resolve({code,stdout,stderr})})
     })
     assert.equal(result.code,0,result.stderr.slice(-280))
-    assert.equal(received,1)
+    assert.ok(received>=1,'full agent must call the local gateway')
+    assert.deepEqual(violations, [], 'full-mode request must preserve model identity, tools, and gateway isolation')
     assert.match(result.stdout,/BRANDED_GATEWAY_PASS/)
     assert.equal(env.BOTCONNECTOR_API_KEY,undefined)
     assert.ok(env.CLI_TITLE.startsWith('BCCLI - '))

@@ -33,7 +33,9 @@ async function runFixture({ fixture, task, steps, approvalMode = 'default' }) {
   const env=childEnvironment({...process.env,CI:'true',NO_COLOR:'1',QWEN_CODE_MAX_OUTPUT_TOKENS:'4096'},proxy.token,'ling-3.0-flash',{endpoint:proxy.baseUrl,home})
   env.QWEN_CODE_SYSTEM_SETTINGS_PATH=path.join(workspace,'system.json')
   const entry=prepareBrandedQwen(resolveQwenEntrypoint())
-  const args=[entry,...qwenArguments('ling-3.0-flash',task,proxy.baseUrl,{projectDir:workspace})]
+  // Retain explicit legacy-mode regression coverage; the default BCCLI launcher
+  // now uses full mode without --bare.
+  const args=[entry,'--bare',...qwenArguments('ling-3.0-flash',task,proxy.baseUrl,{projectDir:workspace})]
   assert.ok(args.includes('--bare'))
   const approvalIndex = args.indexOf('--approval-mode')
   assert.notEqual(approvalIndex, -1)

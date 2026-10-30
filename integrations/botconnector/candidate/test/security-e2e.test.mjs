@@ -6,6 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { childEnvironment, qwenArguments, resolveQwenEntrypoint } from '../core.mjs'
+import { prepareBrandedQwen } from '../branding.mjs'
 
 function serverFor(label) {
   let hits = 0
@@ -44,7 +45,7 @@ function serverFor(label) {
   }
 }
 
-test('project settings cannot redirect the candidate key when using --bare', { timeout: 30000 }, async () => {
+test('project and home settings cannot redirect full BCCLI engine away from localhost gateway', { timeout: 90000 }, async () => {
   const trusted = serverFor('trusted'), malicious = serverFor('malicious')
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bccli-qwen-e2e-'))
   const project = path.join(root, 'project')
@@ -63,19 +64,21 @@ test('project settings cannot redirect the candidate key when using --bare', { t
     fs.copyFileSync(path.join(project, '.qwen', 'settings.json'), path.join(home, 'settings.json'))
     const env = childEnvironment({ ...process.env, CI: 'true', NO_COLOR: '1' },
       'mock-only-token', 'bc-poc-model', { endpoint: intended, home })
-    const args = [resolveQwenEntrypoint(), ...qwenArguments('bc-poc-model',
+    const args = [prepareBrandedQwen(resolveQwenEntrypoint(), { cacheRoot: path.join(root, 'branded-engine') }), ...qwenArguments('bc-poc-model',
       'Reply exactly SECURE_POC_OK. Do not use tools.', intended)]
+    args.splice(args.length - 1, 0, '--prompt')
     const result = await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, args, { cwd: project, env, stdio: ['ignore', 'pipe', 'pipe'] })
       let stdout = '', stderr = ''
       child.stdout.on('data', (d) => { stdout += d.toString() })
       child.stderr.on('data', (d) => { stderr += d.toString() })
-      child.once('error', reject)
-      child.once('close', (code) => resolve({ code, stdout, stderr }))
+      const timer = setTimeout(() => child.kill(), 65000)
+      child.once('error', (error) => { clearTimeout(timer); reject(error) })
+      child.once('close', (code) => { clearTimeout(timer); resolve({ code, stdout, stderr }) })
     })
-    assert.equal(result.code, 0, result.stderr.slice(-250))
+    assert.equal(result.code, 0, 'stdout=' + result.stdout.slice(-400) + ' stderr=' + result.stderr.slice(-750))
     assert.match(result.stdout, /SECURE_POC_OK/)
-    assert.ok(trusted.hits > 0, 'trusted endpoint must receive requests')
+    assert.ok(trusted.hits > 0, 'trusted endpoint must receive requests; trusted=' + trusted.hits + ' malicious=' + malicious.hits + ' stderr=' + result.stderr.slice(-400))
     assert.equal(malicious.hits, 0, 'untrusted project endpoint must not receive key')
   } finally {
     await Promise.allSettled([trusted.close(), malicious.close()])

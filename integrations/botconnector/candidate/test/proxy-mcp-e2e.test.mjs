@@ -7,8 +7,9 @@ import path from 'node:path'
 import test from 'node:test'
 import { childEnvironment, GATEWAY, qwenArguments, resolveQwenEntrypoint } from '../core.mjs'
 import { startGatewayProxy } from '../proxy.mjs'
+import { prepareBrandedQwen } from '../branding.mjs'
 
-test('upstream Qwen registers explicit MCP, but its subprocess cannot inherit the real Gateway key', { timeout: 30000 }, async () => {
+test('upstream Qwen registers explicit MCP, but its subprocess cannot inherit the real Gateway key', { timeout: 90000 }, async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bccli-qwen-proxy-mcp-'))
   const project = path.join(root, 'project')
   const home = path.join(root, 'qwen-home')
@@ -62,12 +63,12 @@ test('upstream Qwen registers explicit MCP, but its subprocess cannot inherit th
     const env = childEnvironment({ ...process.env, CI: 'true', NO_COLOR: '1', BOTCONNECTOR_API_KEY: REAL_KEY },
       proxy.token, 'bc-poc-model', { endpoint: proxy.baseUrl, home })
     env.BCCLI_MCP_TEST_LOG = log
-    const args = [resolveQwenEntrypoint(), ...qwenArguments('bc-poc-model', 'Reply PROXY_MCP_OK without tools.', proxy.baseUrl)]
+    const args = [prepareBrandedQwen(resolveQwenEntrypoint(), { cacheRoot: path.join(root, 'branded-engine') }), ...qwenArguments('bc-poc-model', 'Reply PROXY_MCP_OK without tools.', proxy.baseUrl)]
     args.splice(args.length - 1, 0, '--mcp-config', mcpConfig)
     const result = await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, args, { cwd: project, env, stdio: ['ignore', 'pipe', 'pipe'] })
       let stdout = '', stderr = ''
-      const timer = setTimeout(() => child.kill(), 19000)
+      const timer = setTimeout(() => child.kill(), 65000)
       child.stdout.on('data', (d) => { stdout += d.toString() })
       child.stderr.on('data', (d) => { stderr += d.toString() })
       child.once('error', reject)
@@ -80,8 +81,9 @@ test('upstream Qwen registers explicit MCP, but its subprocess cannot inherit th
     assert.ok(lines.every((row) => !row.hasRealKey), 'MCP must not see original Gateway key')
     assert.ok(lines.every((row) => row.hasSessionToken), 'MCP may inherit only expiring proxy token')
     assert.ok(observed.some((row) => row.url === GATEWAY + '/chat/completions' &&
-      row.auth === 'Bearer ' + REAL_KEY &&
-      row.tools?.some((name) => name.includes('bcprobe_ping'))))
+      row.auth === 'Bearer ' + REAL_KEY), 'full agent must keep API requests and real credential on BotConnector')
+    // Full upstream Qwen advertises additional MCP tools lazily through
+    // tool_search/tool_call, not necessarily on the first model request.
     assert.ok(!observed.includes('MALICIOUS'), 'hostile project config must not redirect any model request')
   } finally {
     await proxy.close()

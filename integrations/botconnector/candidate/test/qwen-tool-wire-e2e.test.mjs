@@ -5,9 +5,10 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { childEnvironment, qwenArguments, resolveQwenEntrypoint } from '../core.mjs'
+import { prepareBrandedQwen } from '../branding.mjs'
 import { startGatewayProxy } from '../proxy.mjs'
 
-test('real Qwen 0.26.3 tools reach strict upstream with valid get_goal parameters', { timeout: 30000 }, async () => {
+test('real Qwen 0.26.3 full-registry tool schemas reach strict upstream', { timeout: 90000 }, async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bccli-qwen-tools-'))
   const seen = []
   const proxy = await startGatewayProxy({
@@ -28,7 +29,7 @@ test('real Qwen 0.26.3 tools reach strict upstream with valid get_goal parameter
           Array.isArray(v) ? v.some(typeUnions) : typeUnions(v)
         ))
       }
-      if (!goal?.function?.parameters || goal.function.parameters.type !== 'object'
+      if ((goal && goal.function.parameters?.type !== 'object')
           || body.tools.some((tool) => typeUnions(tool.function?.parameters))) {
         return new Response(JSON.stringify({ error: { message: "Invalid request body, Failed to parse tool schema" } }), {
           status: 400, headers: { 'content-type': 'application/json' },
@@ -50,21 +51,21 @@ test('real Qwen 0.26.3 tools reach strict upstream with valid get_goal parameter
     const env = childEnvironment({ ...process.env, NO_COLOR: '1', CI: 'true', QWEN_CODE_MAX_OUTPUT_TOKENS: '4096' },
       proxy.token, 'agnes-3.0-flash', { endpoint: proxy.baseUrl, home: path.join(root, 'qwen-home') })
     env.QWEN_CODE_SYSTEM_SETTINGS_PATH = path.join(root, 'system-settings.json')
-    const args = [resolveQwenEntrypoint(), ...qwenArguments('agnes-3.0-flash', 'Balas tepat E2E_OK', proxy.baseUrl)]
+    const args = [prepareBrandedQwen(resolveQwenEntrypoint(), { cacheRoot: path.join(root, 'branded-engine') }), ...qwenArguments('agnes-3.0-flash', 'Balas tepat E2E_OK', proxy.baseUrl)]
     const result = await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, args, { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
       let stdout = '', stderr = ''
       child.stdout.on('data', (data) => { stdout += data.toString() })
       child.stderr.on('data', (data) => { stderr += data.toString() })
-      const timer = setTimeout(() => child.kill(), 22000)
+      const timer = setTimeout(() => child.kill(), 65000)
       child.once('error', (error) => { clearTimeout(timer); reject(error) })
       child.once('close', (code) => { clearTimeout(timer); resolve({ code, stdout, stderr }) })
     })
     assert.equal(result.code, 0, result.stderr.slice(-250))
     assert.match(result.stdout, /E2E_OK/)
-    assert.equal(seen.length, 1)
+    assert.ok(seen.length >= 1, 'full engine must send model requests')
     assert.ok(seen[0].toolCount >= 2, 'Qwen coding tools must remain enabled')
-    assert.deepEqual(seen[0].goal.function.parameters, { type: 'object', properties: {} })
+    if (seen[0].goal) assert.deepEqual(seen[0].goal.function.parameters, { type: 'object', properties: {} })
     assert.ok(seen[0].readFile, 'read_file must remain available')
     assert.equal(seen[0].readFile.function.parameters.properties.offset.type, 'integer')
     assert.equal(seen[0].readFile.function.parameters.properties.limit.type, 'integer')

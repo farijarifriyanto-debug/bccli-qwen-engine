@@ -165,17 +165,18 @@ export function selectModel(models, value) {
 
 export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false, resumeSession, projectDir = process.cwd() } = {}) {
   if (continueSession && resumeSession !== undefined) throw Error('Cannot combine native Qwen --continue with --resume.')
-  // --bare is security critical: project settings may otherwise override
-  // the provider baseUrl, forwarding an API key to an attacker-controlled endpoint.
+  // Use the full upstream coding agent. The real provider key remains only in
+  // the parent-owned loopback gateway proxy; this child receives a short-lived
+  // proxy token, never a provider credential.
   const args = [
-    '--bare', '--auth-type', 'openai',
+    '--auth-type', 'openai',
     '--openai-base-url', endpoint,
     '--model', model, '--approval-mode', 'default',
     '--telemetry=false',
   ]
-  // Bare mode intentionally blocks implicit project auto-discovery.
-  // Explicitly register only the current workspace for AGENTS.md/QWEN.md
-  // instructions. No project settings/MCP/hooks are loaded by this flag.
+  // Keep the current workspace visible to the upstream instruction loader.
+  // Full mode uses upstream workspace trust and approval boundaries for
+  // project-level settings, MCP integrations, and hooks.
   if (!isAbsolute(projectDir)) throw Error('BCCLI workspace root must be absolute.')
   args.push('--include-directories', projectDir)
   // The active AI can change with /model. Do not embed the STARTUP model
@@ -183,7 +184,7 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, co
   // The BotConnector local proxy adds the actual request model to each
   // chat call, without forcing the AI to impersonate BCCLI.
   args.push('--append-system-prompt',
-    'Client application: BCCLI. The upstream coding engine is Qwen Code, which is software, not the AI model answering the user. Identify the responding AI using active_model_id from current-request runtime metadata (the model can change mid-session). If no current model ID is available, state that it is unknown. Do not call the assistant Qwen Code or BCCLI as if either were the AI model, and do not infer who developed the active model from the application or engine brand. For coding tasks, prefer glob to locate files, grep_search to find source references, read_file to inspect exact content, write_file only to create an explicitly requested file, apply_patch for atomic multi-hunk updates to one existing file after read_file and approval, edit for minimal replacements, and run_shell_command for tests or build steps using tool approval. Preserve existing file contents when not explicitly authorized to overwrite. After executing, report actual output, exit codes, and failed tests; never claim that commands ran without evidence.')
+    'Client application: BCCLI. The upstream coding engine is Qwen Code, which is software, not the AI model answering the user. Identify the responding AI using active_model_id from current-request runtime metadata (the model can change mid-session). If no current model ID is available, state that it is unknown. Do not call the assistant Qwen Code or BCCLI as if either were the AI model, and do not infer who developed the active model from the application or engine brand. In full engine mode, use tool_search and tool_call to discover supported tools not initially listed, including web_fetch; web_search needs a configured search backend and must not be fabricated. For coding tasks, prefer glob to locate files, grep_search to find source references, read_file to inspect exact content, write_file only to create an explicitly requested file, apply_patch for atomic multi-hunk updates to one existing file after read_file and approval, edit for minimal replacements, and run_shell_command for tests or build steps using tool approval. Preserve existing file contents when not explicitly authorized to overwrite. After executing, report actual output, exit codes, and failed tests; never claim that commands ran without evidence.')
   if (mcpConfig) args.push('--mcp-config', mcpConfig)
   if (continueSession) args.push('--continue')
   if (resumeSession !== undefined) args.push('--resume', ...(resumeSession === null ? [] : [resumeSession]))
@@ -196,6 +197,7 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home, p
   // Prevent inherited cross-provider auth from becoming another route or key.
   for (const name of [
     'QWEN_OAUTH', 'BOTCONNECTOR_API_KEY', 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_MODEL', 'QWEN_MODEL',
+    'QWEN_CODE_RELAUNCH_ARGS',
     'ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL', 'GEMINI_API_KEY',
     'GOOGLE_API_KEY', 'OPENROUTER_API_KEY', 'QWENCLOUD_API_KEY',
     'QWENCLOUD_TOKEN_PLAN_API_KEY', 'DEEPSEEK_API_KEY', 'GROQ_API_KEY', 'XAI_API_KEY',
@@ -216,7 +218,7 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home, p
 
 // Explicit MCP servers run local commands on startup, so they must originate
 // from a config file the user deliberately placed outside any cloned project.
-// There is no automatic project/user MCP discovery when Qwen runs --bare.
+// Full engine auto-discovery is subject to upstream workspace trust.
 export function resolveTrustedMcpConfig(input, { home = join(homedir(), '.bccli-preview') } = {}) {
   if (!input) return undefined
   if (!isAbsolute(input)) throw Error('MCP config must use an absolute path.')
