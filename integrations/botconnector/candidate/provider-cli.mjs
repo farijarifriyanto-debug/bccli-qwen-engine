@@ -51,19 +51,18 @@ export async function runProviderCommand(words, {
     for (const [name, info] of Object.entries(PROVIDERS)) {
       out(name + ' - ' + info.name + ' [' + (configured(name,{env}) ? 'configured' : 'no key') + ']' + (name === current ? ' [ACTIVE]' : ''))
     }
-    out('Add: bccli-preview provider add openrouter; select: bccli-preview provider use openrouter')
+    out('Add: bccli provider add botconnector (or openrouter); select: bccli provider use openrouter')
     out('Provider keys are stored encrypted for your Windows user. Other systems: use the provider environment variable.')
     return 0
   }
   providerDefinition(id)
   if (action === 'add') {
-    if (id === 'botconnector') throw Error('For BotConnector, use the existing public "bccli login bc-cloud".')
     out('Provider: ' + PROVIDERS[id].name + ' (direct API; provider billing and terms apply).')
     const key = await getKey()
     save(id, key)
     select(id,{env})
     out('API key securely saved and provider selected: ' + id + '. Key was not printed. No AI request sent.')
-    out('Run: bccli-preview models, then bccli-preview chat --model MODEL_ID')
+    out('Run: bccli models, then bccli chat --model MODEL_ID')
     return 0
   }
   if (action === 'use') {
