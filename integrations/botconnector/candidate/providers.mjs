@@ -40,7 +40,7 @@ function ownerDirectory(root, { create = false } = {}) {
   return true
 }
 function keyPath(root, id) {
-  if (!ID.test(id) || id === 'botconnector') throw Error('Provider key storage requires a supported non-BotConnector provider.')
+  if (!ID.test(id) || !Object.hasOwn(PROVIDERS, id)) throw Error('Provider key storage requires a supported provider.')
   return join(root, 'provider-' + id + '.dpapi')
 }
 function dpapi(script, input, { platform = process.platform, runner = spawnSync } = {}) {
@@ -54,7 +54,6 @@ function dpapi(script, input, { platform = process.platform, runner = spawnSync 
 }
 export function saveProviderKey(id, key, { root = providerRoot(), platform = process.platform, runner = spawnSync } = {}) {
   providerDefinition(id)
-  if (id === 'botconnector') throw Error('Use existing bccli login for BotConnector credentials.')
   if (typeof key !== 'string' || !key.trim() || key.length > 8192 || /[\r\n]/.test(key)) throw Error('API key cannot be empty, multiline, or oversized.')
   if (platform !== 'win32') throw Error('On non-Windows systems, use the provider API key environment variable.')
   ownerDirectory(root, { create: true })
@@ -70,7 +69,6 @@ export function saveProviderKey(id, key, { root = providerRoot(), platform = pro
 }
 export function storedProviderKey(id, { root = providerRoot(), platform = process.platform, runner = spawnSync } = {}) {
   providerDefinition(id)
-  if (id === 'botconnector') throw Error('BotConnector credentials are managed by public BCCLI.')
   if (!ownerDirectory(root)) throw Error('Provider not configured. Run provider add.')
   const path = keyPath(root, id)
   let info
@@ -83,10 +81,27 @@ export function storedProviderKey(id, { root = providerRoot(), platform = proces
 }
 export function isConfigured(id, { env = process.env, root = providerRoot({env}) } = {}) {
   providerDefinition(id)
+  // An owner-bound BCCLI DPAPI key wins; preserve the older public BCCLI login
+  // as read-only fallback, and never migrate or overwrite it implicitly.
+  try {
+    if (ownerDirectory(root) && lstatSync(keyPath(root, id)).isFile() && !lstatSync(keyPath(root, id)).isSymbolicLink()) return true
+  } catch { /* No encrypted key; fall back only when absent. */ }
   if (id === 'botconnector') return botConnectorCredentialStatus({ env }).configured
-  if (env[PROVIDERS[id].env]?.trim()) return true
-  try { return ownerDirectory(root) && lstatSync(keyPath(root, id)).isFile() && !lstatSync(keyPath(root, id)).isSymbolicLink() }
-  catch { return false }
+  return !!env[PROVIDERS[id].env]?.trim()
+}
+
+export function botConnectorProviderStatus({ env = process.env, root = providerRoot({env}) } = {}) {
+  try {
+    if (ownerDirectory(root) && existsSync(keyPath(root, 'botconnector'))) {
+      const info = lstatSync(keyPath(root, 'botconnector'))
+      if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_BLOB_BYTES ||
+        !/^[0-9a-f]+\s*$/i.test(readFileSync(keyPath(root, 'botconnector'), 'utf8'))) {
+        return { configured: false, source: 'unsafe-encrypted-file' }
+      }
+      return { configured: true, source: 'encrypted-bccli' }
+    }
+  } catch { return { configured: false, source: 'invalid-preview-storage' } }
+  return botConnectorCredentialStatus({env})
 }
 export function selectedProvider({ env = process.env, root = providerRoot({env}) } = {}) {
   if (!ownerDirectory(root)) return 'botconnector'
@@ -122,17 +137,16 @@ export function removeProvider(id, { env = process.env, root = providerRoot({env
     rmSync(active, {force:true})
   }
 }
-export function resolveProvider(id, { env = process.env, root = providerRoot({env}) } = {}) {
+export function resolveProvider(id, { env = process.env, root = providerRoot({env}), platform = process.platform, runner = spawnSync } = {}) {
   const info = providerDefinition(id)
-  if (id === 'botconnector') return { id, ...info, key: botConnectorKey({env}) }
   // An explicit key saved through "provider add" must win over stale environment
   // variables. Never silently fall back if the encrypted file is corrupted.
   let key
-  try { key = storedProviderKey(id, {root}) }
+  try { key = storedProviderKey(id, {root, platform, runner}) }
   catch (error) {
     if (error?.message !== 'Provider not configured. Run provider add.') throw error
-    key = env[info.env]?.trim()
+    key = id === 'botconnector' ? botConnectorKey({env}) : env[info.env]?.trim()
   }
-  if (!key) throw Error('Provider not configured. Run provider add ' + id + ' or set ' + info.env + '.')
+  if (!key) throw Error('Provider not configured. Run provider add ' + id + ' or set its environment API key.')
   return { id, ...info, key }
 }
