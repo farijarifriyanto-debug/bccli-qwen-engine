@@ -94,7 +94,8 @@ export function botConnectorProviderStatus({ env = process.env, root = providerR
   try {
     if (ownerDirectory(root) && existsSync(keyPath(root, 'botconnector'))) {
       const info = lstatSync(keyPath(root, 'botconnector'))
-      if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_BLOB_BYTES) {
+      if (!info.isFile() || info.isSymbolicLink() || info.size > MAX_BLOB_BYTES ||
+        !/^[0-9a-f]+\s*$/i.test(readFileSync(keyPath(root, 'botconnector'), 'utf8'))) {
         return { configured: false, source: 'unsafe-encrypted-file' }
       }
       return { configured: true, source: 'encrypted-bccli' }
