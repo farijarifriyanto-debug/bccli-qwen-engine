@@ -30,7 +30,7 @@ function help() {
     '  bccli chat --provider ID --model MODEL_ID',
     '  bccli  (open chat directly with active provider and last model)',
     '  bccli --choose  (open provider/model picker explicitly)',
-    '  During chat: /provider to list; /provider NAME MODEL_ID to switch provider live.',
+    '  During chat: /provider (menu), /provider add NAME, /provider remove NAME, /provider NAME MODEL_ID.',
     '',
     'Credentials: hidden in-terminal input; Windows DPAPI encrypted per-user storage, or existing login/env.',
     'Provider choices: botconnector, openai, openrouter, deepseek, groq, xai.',

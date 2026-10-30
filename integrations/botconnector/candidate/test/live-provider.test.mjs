@@ -24,6 +24,7 @@ function fixture() {
       token: 'TEMP_LOCAL_TOKEN',
       liveProvider: true,
       configured: id => Object.hasOwn(profiles, id),
+      secureKeyPrompt: async () => null,
       resolveProfile: id => profiles[id],
       selectProvider: id => changed.push(['provider', id]),
       rememberModel: (id, model) => changed.push(['model', id, model]),
@@ -86,7 +87,7 @@ test('reject unconfigured provider, invalid model, wrong token; never change cur
   const proxy = await startGatewayProxy(f.proxyOptions)
   try {
     const x = slash(proxy)
-    assert.match((await x.call('groq')).content, /no configured key/)
+    assert.match((await x.call('groq')).content, /Cancelled/)
     assert.equal((await x.call('openai ../../unsafe')).messageType, 'error')
     assert.equal((await fetch(proxy.baseUrl + '/bccli/providers', { headers: { authorization: 'Bearer NOT_LOCAL' } })).status, 401)
     assert.equal((await fetch(proxy.baseUrl + '/bccli/provider/switch', {

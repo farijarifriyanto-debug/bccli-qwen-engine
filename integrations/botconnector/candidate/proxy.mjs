@@ -1,7 +1,8 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
 import { GATEWAY } from './gateway.mjs'
-import { ALLOWED_PROVIDER_ENDPOINTS, PROVIDERS, resolveProvider, isConfigured, useProvider, saveSelectedModel } from './providers.mjs'
+import { ALLOWED_PROVIDER_ENDPOINTS, PROVIDERS, resolveProvider, isConfigured, useProvider, saveSelectedModel, saveProviderKey, removeProvider } from './providers.mjs'
+import { promptProviderKey, confirmRemoveProviderKey } from './native-key-dialog.mjs'
 
 // This proxy lives only for one Qwen Code session. Real provider keys remain in
 // the launcher process; MCP and bash subprocesses can see only a short-lived
@@ -138,7 +139,7 @@ function matchesToken(auth, token) {
   return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
-export async function startGatewayProxy({ key, endpoint = GATEWAY, token = randomBytes(32).toString('hex'), fetchImpl = fetch, liveProvider = false, initialProvider = 'botconnector', resolveProfile = resolveProvider, configured = isConfigured, selectProvider = useProvider, rememberModel = saveSelectedModel } = {}) {
+export async function startGatewayProxy({ key, endpoint = GATEWAY, token = randomBytes(32).toString('hex'), fetchImpl = fetch, liveProvider = false, initialProvider = 'botconnector', resolveProfile = resolveProvider, configured = isConfigured, selectProvider = useProvider, rememberModel = saveSelectedModel, secureKeyPrompt = promptProviderKey, secureRemoveConfirm = confirmRemoveProviderKey, persistKey = saveProviderKey, deleteKey = removeProvider } = {}) {
   if (!ALLOWED_PROVIDER_ENDPOINTS.includes(endpoint)) throw Error('Unapproved provider endpoint; local proxy refused to start.')
   if (typeof key !== 'string' || !key.trim()) throw Error('Gateway key is required for local proxy.')
   if (typeof token !== 'string' || token.length < 6 || token === key) throw Error('Invalid or non-isolated proxy token.')
@@ -148,6 +149,23 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
   // HTTPS endpoint must belong to the audited provider allowlist.
   let active = { id: initialProvider, endpoint, key }
   let inFlight = 0
+  let managingKeys = false
+  let credentialRevoked = false
+  const readLocalAction = async (req, max = 512) => {
+    const buffers = []
+    let length = 0
+    for await (const piece of req) {
+      length += piece.length
+      if (length > max) throw Error('Too much data')
+      buffers.push(piece)
+    }
+    const input = JSON.parse(Buffer.concat(buffers).toString('utf8'))
+    if (!input || typeof input !== 'object' || Array.isArray(input) || input.action !== 'user-confirmed-local-key-dialog' ||
+        typeof input.provider !== 'string' || !Object.hasOwn(PROVIDERS, input.provider) ||
+        Object.keys(input).some(name => name !== 'action' && name !== 'provider')) throw Error('Invalid key-management request')
+    return input.provider
+  }
+
   const publicProviders = () => Object.entries(PROVIDERS).map(([id, item]) => ({
     id, name: item.name, active: id === active.id, configured: configured(id),
   }))
@@ -189,6 +207,63 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
       res.end(JSON.stringify({ providers: publicProviders(), active: active.id }))
       return
     }
+    if (liveProvider && (req.url === '/v1/bccli/provider/key/add' || req.url === '/v1/bccli/provider/key/remove')) {
+      if (req.method !== 'POST') { fail(405, 'Method not allowed.'); return }
+      if (inFlight || managingKeys) { fail(409, 'Finish the active operation first.'); return }
+      if (Number(req.headers['content-length'] || 0) > 512) { fail(413, 'Invalid key-management request.'); return }
+      managingKeys = true
+      try {
+        const id = await readLocalAction(req)
+        if (req.url.endsWith('/add')) {
+          // Only the parent launches this masked native Windows dialog. The
+          // child sends only the provider ID, never a user-entered API key.
+          const proposed = await secureKeyPrompt(id)
+          if (proposed == null) {
+            res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+            res.end(JSON.stringify({ provider: id, cancelled: true }))
+            return
+          }
+          if (typeof proposed !== 'string' || !proposed.trim() || proposed.length > 8192 || /[\r\n]/.test(proposed)) throw Error('Invalid input')
+          const where = PROVIDERS[id]
+          const upstream = await fetchImpl(where.endpoint + '/models', {
+            method: 'GET', headers: { authorization: 'Bearer ' + proposed.trim(), accept: 'application/json' },
+            redirect: 'error', signal: AbortSignal.timeout(12000),
+          })
+          if (!upstream.ok) { fail(400, 'API key was not accepted by provider. Existing key unchanged.'); return }
+          const body = await upstream.json()
+          if (!Array.isArray(body?.data)) { fail(400, 'Provider returned an invalid model catalog. Existing key unchanged.'); return }
+          persistKey(id, proposed.trim())
+          if (active.id === id) {
+            active = { id, endpoint: where.endpoint, key: proposed.trim() }
+            credentialRevoked = false
+          }
+          res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+          res.end(JSON.stringify({ provider: id, saved: true, active: active.id === id }))
+        } else {
+          // Deleting secrets MUST be a user-confirmed native dialog, not a
+          // silent HTTP operation executable by the model's coding tools.
+          const confirmed = await secureRemoveConfirm(id)
+          if (!confirmed) {
+            res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+            res.end(JSON.stringify({ provider: id, cancelled: true }))
+            return
+          }
+          deleteKey(id)
+          if (active.id === id) {
+            active = { id, endpoint: active.endpoint, key: null }
+            credentialRevoked = true
+          }
+          const stillConfigured = configured(id)
+          res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+          res.end(JSON.stringify({ provider: id, removed: true, active: active.id === id, stillConfigured }))
+        }
+      } catch {
+        fail(400, 'Unable to manage API key. Existing provider key was not printed.')
+      } finally {
+        managingKeys = false
+      }
+      return
+    }
     const modelsMatch = liveProvider && /^\/v1\/bccli\/providers\/([a-z][a-z0-9-]{0,31})\/models$/.exec(req.url ?? '')
     if (modelsMatch && req.method === 'GET') {
       try {
@@ -201,7 +276,7 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
       return
     }
     if (req.url === '/v1/bccli/provider/switch' && liveProvider && req.method === 'POST') {
-      if (inFlight) { fail(409, 'Finish the active AI response before switching providers.'); return }
+      if (inFlight || managingKeys) { fail(409, 'Finish the active AI response or key manager before switching providers.'); return }
       if (Number(req.headers['content-length'] || 0) > 1024) { fail(413, 'Invalid provider selection.'); return }
       try {
         const buffers = []
@@ -226,6 +301,7 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
         rememberModel(id, model)
         selectProvider(id)
         active = { id, endpoint: profile.endpoint, key: profile.key }
+        credentialRevoked = false
         res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
         res.end(JSON.stringify({ provider: id, model }))
       } catch {
@@ -235,6 +311,10 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
     }
     if (!ALLOWED_PATHS.has(req.url ?? '')) {
       fail(404, 'Unsupported local gateway route.')
+      return
+    }
+    if (credentialRevoked || !active.key) {
+      fail(409, 'The active API key was removed. Select or configure a provider with /provider before sending a new request.')
       return
     }
     const method = req.url === '/v1/models' ? 'GET' : 'POST'

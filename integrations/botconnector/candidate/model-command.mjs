@@ -33,7 +33,7 @@ export const BCCLI_MODEL_COMMAND = String.raw`var bccliModelLastList=[];var mode
       if(!Number.isSafeInteger(page)||page<1||page>pages)return response("error","Invalid page. Use /model page 1 ... "+pages);
       var start=(page-1)*size;
       var rows=entries.slice(start,start+size).map((x,i)=>(start+i+1)+". "+x.id+(x.id===current?"  [ACTIVE]":""));
-      return response("info","Provider AI models ("+entries.length+" available; page "+page+"/"+pages+")\nActive: "+current+"\n\n"+rows.join("\n")+"\n\nUse /model NUMBER or /model MODEL_ID to switch now; /model page N; /model search KEYWORD. To change providers without leaving this chat, use /provider; then /provider NAME MODEL_ID.");
+      return response("info","Provider AI models ("+entries.length+" available; page "+page+"/"+pages+")\nActive: "+current+"\n\n"+rows.join("\n")+"\n\nUse /model NUMBER or /model MODEL_ID to switch now; /model page N; /model search KEYWORD. To manage providers and their keys in this chat, use /provider, /provider add NAME or /provider remove NAME; then /provider NAME MODEL_ID.");
     };
     if(!text)return list(all);
     var page=text.match(/^page\s+([0-9]+)$/i);
