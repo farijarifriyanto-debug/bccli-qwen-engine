@@ -78,7 +78,7 @@ export function parseArgs(argv) {
     if (args[0] !== 'run') args.unshift('run')
   }
   const command = ALLOWED.has(args[0]) ? args.shift() : 'chat'
-  let model, mcpConfig, provider, json = false
+  let model, mcpConfig, provider, json = false, outputFormat
   const prompt = []
   while (args.length) {
     const arg = args.shift()
@@ -98,6 +98,12 @@ export function parseArgs(argv) {
       continue
     }
     if (arg === '--json' && command === 'models') { json = true; continue }
+    if (arg === '--output-format') {
+      if (outputFormat !== undefined || !args.length) throw Error('Specify --output-format exactly once with a format.')
+      outputFormat = args.shift()
+      if (!['text', 'json', 'stream-json'].includes(outputFormat)) throw Error('Unsupported output format.')
+      continue
+    }
     if (arg.startsWith('-')) throw Error('Unsupported option. POC intentionally blocks passthrough flags.')
     prompt.push(arg)
   }
@@ -105,7 +111,8 @@ export function parseArgs(argv) {
   if (command === 'auth' && (model || mcpConfig || json || prompt.join(' ') !== 'status')) throw Error('Use: auth status (offline and read-only).')
   if (command === 'models' && (model || mcpConfig || prompt.length)) throw Error('Use: models [--json].')
   if (command === 'run' && !prompt.length) throw Error('Use: run --model MODEL "prompt".')
-  return { command, model, json, prompt: prompt.join(' '), ...(mcpConfig ? { mcpConfig } : {}), ...(provider ? { provider } : {}) }
+  if (outputFormat !== undefined && command !== 'run') throw Error('--output-format is only supported for a headless run.')
+  return { command, model, json, prompt: prompt.join(' '), ...(mcpConfig ? { mcpConfig } : {}), ...(provider ? { provider } : {}), ...(outputFormat ? { outputFormat } : {}) }
 }
 
 export async function discoverModels({ key, fetchImpl = fetch, endpoint = GATEWAY }) {
@@ -143,7 +150,7 @@ export function selectModel(models, value) {
   return value
 }
 
-export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false } = {}) {
+export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false, outputFormat } = {}) {
   // --bare is security critical: project settings may otherwise override
   // the provider baseUrl, forwarding an API key to an attacker-controlled endpoint.
   const args = [
@@ -160,6 +167,7 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, co
     'Client app: BCCLI. The active AI model can change in-session; use the current request runtime metadata, not the initial launch model. Do not treat the client app as the model or provider identity.')
   if (mcpConfig) args.push('--mcp-config', mcpConfig)
   if (continueSession) args.push('--continue')
+  if (outputFormat) args.push('--output-format', outputFormat)
   if (prompt) args.push(prompt)
   return args
 }
@@ -220,12 +228,12 @@ export function resolveQwenEntrypoint() {
   return join(dirname(require.resolve('@qwen-code/qwen-code/package.json')), 'cli-entry.js')
 }
 
-export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
+export async function launchQwen({ key, model, prompt, mcpConfig, outputFormat, continueSession = false, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
   // The real API key never enters Qwen, its tools, or any MCP child process.
   // Only this launcher retains it while the ephemeral proxy is running.
   const proxy = await proxyFactory({ key, endpoint: upstream })
   try {
-    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession })]
+    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, outputFormat })]
     const child = spawnImpl(process.execPath, args, {
       cwd: process.cwd(), env: childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl, providerId }),
       stdio: 'inherit', windowsHide: false, shell: false,
