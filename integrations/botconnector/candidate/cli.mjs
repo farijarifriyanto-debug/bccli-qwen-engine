@@ -96,7 +96,8 @@ async function main() {
   let sessionId = args.sessionId
   for (;;) {
     // ACP transports JSON-RPC on stdout; any human banner breaks protocol framing.
-    if (args.command !== 'acp' && (!args.outputFormat || args.outputFormat === 'text')) console.log('BCCLI | ' + providerDefinition(chosen.providerId).name + ' | ' + chosen.model)
+    // Headless stdout belongs solely to model output; editor ACP is protocol-only.
+    if (args.command !== 'acp' && args.command !== 'run') console.log('BCCLI | ' + providerDefinition(chosen.providerId).name + ' | ' + chosen.model)
     const code = await launchQwen({
       key: chosen.key, model: chosen.model, prompt: args.prompt,
       mcpConfig, outputFormat: args.outputFormat, entrypoint, upstream: chosen.endpoint,
