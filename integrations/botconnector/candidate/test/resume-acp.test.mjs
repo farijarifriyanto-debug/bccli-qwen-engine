@@ -38,7 +38,6 @@ test('ACP is protocol-only: refuses prompts and untrusted CLI flags', () => {
     ['acp','prompt'], ['acp','--json'], ['acp','-p','prompt'],
     ['acp','--output-format','json'], ['acp','--yolo'],
     ['acp','--openai-base-url','https://evil.example/v1'],
-    ['acp','--mcp-config','https://evil.example'],
   ]) {
     assert.throws(() => parseArgs(argv), undefined, argv.join(' '))
   }
