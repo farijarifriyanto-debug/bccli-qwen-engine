@@ -188,3 +188,16 @@ test('known Windows Node24 tool-loop crash versions are blocked before launch', 
   assert.doesNotThrow(() => assertCandidateRuntimeSupported({ platform:'win32', nodeVersion:'22.23.4' }))
   assert.doesNotThrow(() => assertCandidateRuntimeSupported({ platform:'linux', nodeVersion:'24.18.0' }))
 })
+
+test('identity metadata separates BCCLI client, upstream engine and live AI without pinning a persona', () => {
+  const args = qwenArguments('test-switchable-model', '', 'http://127.0.0.1:32323/v1')
+  const prompt = args[args.indexOf('--append-system-prompt') + 1]
+  assert.match(prompt, /Client application: BCCLI/)
+  assert.match(prompt, /upstream coding engine is Qwen Code/)
+  assert.match(prompt, /software, not the AI model/)
+  assert.match(prompt, /active_model_id/)
+  assert.match(prompt, /model can change mid-session/)
+  assert.doesNotMatch(prompt, /You are BCCLI|You are Qwen Code|developed by BICO/)
+  assert.doesNotMatch(prompt, /ling-3\.0-flash|test-switchable-model/)
+  assert.equal(args[args.indexOf('--model') + 1], 'test-switchable-model')
+})
