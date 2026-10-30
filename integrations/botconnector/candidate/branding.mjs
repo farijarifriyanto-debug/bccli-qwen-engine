@@ -32,7 +32,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-B3ZFUGTC.js': 'f3f57aafbaeab56ca58f5d3173751d30e5fef815aeaf8dc9b46e6ea9e85eb528',
   'chunks/chunk-GGVWG4SI.js': '945c7f4e9b3697003c165b7bc5d007c9b87140d1fad7be084d7b253d8d2b476c',
 })
-const BRAND_REVISION = 'bccli-new-20261031-agents-md-first-v12'
+const BRAND_REVISION = 'bccli-new-20261031-safe-core-tools-v13'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -349,7 +349,20 @@ export function patchUiChunk(file, text) {
       'headless approval warning')
   }
   if (file === 'chunks/chunk-ERV2ECV3.js') {
-    return renameProductLanguage(replaceExactly(text,
+    let result = text
+    if (result.includes('var DEFAULT_BARE_CORE_TOOLS=')) {
+      result = replaceOnce(result,
+      'var DEFAULT_BARE_CORE_TOOLS=[ToolNames.READ_FILE,ToolNames.EDIT,ToolNames.NOTEBOOK_EDIT,ToolNames.SHELL];',
+      'var DEFAULT_BARE_CORE_TOOLS=[ToolNames.READ_FILE,ToolNames.EDIT,ToolNames.NOTEBOOK_EDIT,ToolNames.SHELL,ToolNames.WRITE_FILE,ToolNames.GLOB,ToolNames.GREP];',
+      'enable safe built-in file create/find/grep under isolated bare mode')
+    // Bare mode has a separate registry branch; updating the core allowlist
+    // alone is insufficient. Register the already-vendored implementations.
+    result = replaceOnce(result,
+      'await registerLazy(ToolNames.SHELL,async()=>{const{ShellTool:ShellTool2}=await import("./shell-MESMTEQS.js");return new ShellTool2(this)});await registerGoalWorkerTools();await registerStructuredOutputIfRequested();',
+      'await registerLazy(ToolNames.SHELL,async()=>{const{ShellTool:ShellTool2}=await import("./shell-MESMTEQS.js");return new ShellTool2(this)});await registerLazy(ToolNames.WRITE_FILE,async()=>{const{WriteFileTool}=await import("./write-file-2A6M6WGQ.js");return new WriteFileTool(this)});await registerLazy(ToolNames.GLOB,async()=>{const{GlobTool}=await import("./glob-YYAAZG3O.js");return new GlobTool(this)});await registerLazy(ToolNames.GREP,async()=>{const{GrepTool}=await import("./grep-ZPVNGCCV.js");return new GrepTool(this)});await registerGoalWorkerTools();await registerStructuredOutputIfRequested();',
+      'register missing bare-mode write_file glob and grep_search tool instances')
+    }
+    return renameProductLanguage(replaceExactly(result,
       'Qwen Code requires permission to use ',
       'BCCLI requires permission to use ', 4,
       'user-facing tool permission errors'))

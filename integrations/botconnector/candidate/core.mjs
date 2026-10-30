@@ -163,7 +163,7 @@ export function selectModel(models, value) {
   return value
 }
 
-export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false, resumeSession } = {}) {
+export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false, resumeSession, projectDir = process.cwd() } = {}) {
   if (continueSession && resumeSession !== undefined) throw Error('Cannot combine native Qwen --continue with --resume.')
   // --bare is security critical: project settings may otherwise override
   // the provider baseUrl, forwarding an API key to an attacker-controlled endpoint.
@@ -173,12 +173,17 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, co
     '--model', model, '--approval-mode', 'default',
     '--telemetry=false',
   ]
+  // Bare mode intentionally blocks implicit project auto-discovery.
+  // Explicitly register only the current workspace for AGENTS.md/QWEN.md
+  // instructions. No project settings/MCP/hooks are loaded by this flag.
+  if (!isAbsolute(projectDir)) throw Error('BCCLI workspace root must be absolute.')
+  args.push('--include-directories', projectDir)
   // The active AI can change with /model. Do not embed the STARTUP model
   // here: doing so would falsely identify a later selected model.
   // The BotConnector local proxy adds the actual request model to each
   // chat call, without forcing the AI to impersonate BCCLI.
   args.push('--append-system-prompt',
-    'Client application: BCCLI. The upstream coding engine is Qwen Code, which is software, not the AI model answering the user. Identify the responding AI using active_model_id from current-request runtime metadata (the model can change mid-session). If no current model ID is available, state that it is unknown. Do not call the assistant Qwen Code or BCCLI as if either were the AI model, and do not infer who developed the active model from the application or engine brand.')
+    'Client application: BCCLI. The upstream coding engine is Qwen Code, which is software, not the AI model answering the user. Identify the responding AI using active_model_id from current-request runtime metadata (the model can change mid-session). If no current model ID is available, state that it is unknown. Do not call the assistant Qwen Code or BCCLI as if either were the AI model, and do not infer who developed the active model from the application or engine brand. For coding tasks, prefer glob to locate files, grep_search to find source references, read_file to inspect exact content, write_file only to create an explicitly requested file, edit for minimal replacements, and run_shell_command for tests or build steps using tool approval. Preserve existing file contents when not explicitly authorized to overwrite. After executing, report actual output, exit codes, and failed tests; never claim that commands ran without evidence.')
   if (mcpConfig) args.push('--mcp-config', mcpConfig)
   if (continueSession) args.push('--continue')
   if (resumeSession !== undefined) args.push('--resume', ...(resumeSession === null ? [] : [resumeSession]))
@@ -256,7 +261,7 @@ export async function launchQwen({ key, model, prompt, mcpConfig, continueSessio
   // Only this launcher retains it while the ephemeral proxy is running.
   const proxy = await proxyFactory({ key, endpoint: upstream, liveProvider: true, initialProvider: providerId })
   try {
-    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, resumeSession })]
+    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, resumeSession, projectDir: process.cwd() })]
     const child = spawnImpl(process.execPath, args, {
       cwd: process.cwd(), env: childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl, providerId }),
       stdio: 'inherit', windowsHide: false, shell: false,
