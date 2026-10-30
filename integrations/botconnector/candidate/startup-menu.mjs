@@ -50,13 +50,9 @@ export async function startupMenu({
     providerId = selectedName(value, ids, active)
     if (!providerId) { out('Pilihan provider tidak dikenal.'); continue }
     replace = value.endsWith('!')
-    if (providerId === 'botconnector' && replace) {
-      out('Gunakan bccli-legacy login bc-cloud untuk mengubah key BotConnector lama; key tidak akan diubah dari menu ini.')
-      continue
-    }
     break
   }
-  if ((replace || !configured(providerId)) && providerId !== 'botconnector') {
+  if (replace || !configured(providerId)) {
     out('Masukkan API key ' + PROVIDERS[providerId].name + ' (input tersembunyi).')
     const key = await askSecret()
     // A cancel or missing key cannot silently select an unusable provider.
