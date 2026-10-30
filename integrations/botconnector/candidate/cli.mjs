@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { DEFAULT_MODEL, assertCandidateRuntimeSupported, discoverModels, launchQwen, parseArgs, resolveQwenEntrypoint, resolveTrustedMcpConfig, selectModel } from './core.mjs'
 import { prepareBrandedQwen } from './branding.mjs'
 import { botConnectorCredentialStatus } from './credentials.mjs'
-import { resolveProvider, selectedProvider, providerDefinition } from './providers.mjs'
+import { resolveProvider, selectedProvider, providerDefinition, isConfigured } from './providers.mjs'
 import { runProviderCommand } from './provider-cli.mjs'
 import { startupMenu, autoSelectStartup, PROVIDER_SWITCH_EXIT } from './startup-menu.mjs'
 
@@ -20,6 +20,8 @@ function help() {
     '  bccli -c [-m MODEL] [prompt]  (resume latest current-project session)',
     '  bccli -r [SESSION_UUID] [-m MODEL]  (native Qwen session picker or specific session)',
     '  bccli auth status  (offline; does not print API key)',
+    '  bccli provider add botconnector  (enter a new Cloud key securely)',
+    '  bccli provider remove botconnector  (remove only the newly saved key)',
     '  bccli provider list|add|use|remove [ID]  (manage provider keys)',
     '  bccli models --provider ID  (list models for provider)',
     '  bccli chat --provider ID --model MODEL_ID',
@@ -27,9 +29,9 @@ function help() {
     '  bccli --choose  (open provider/model picker explicitly)',
     '  During chat: /provider or /auth to reopen provider and key picker.',
     '',
-    'Credentials: existing BotConnector login or encrypted per-user provider API keys (Windows).',
+    'Credentials: hidden in-terminal input; Windows DPAPI encrypted per-user storage, or existing login/env.',
     'Provider choices: botconnector, openai, openrouter, deepseek, groq, xai.',
-    'Key entry: bccli provider add openrouter (hidden terminal prompt).',
+    'Key entry: bccli --choose or bccli provider add botconnector (hidden terminal prompt).',
     'Model choice: --model; BotConnector defaults to ling-3.0-flash. Other providers need --model.',
     'Security: allowlisted provider endpoints, ephemeral local token, --bare and default approvals.',
     'MCP: explicit JSON only, directly under ~/.bccli-preview/ (no project configs).',
@@ -53,14 +55,16 @@ async function main() {
   if (args.command === 'provider') return runProviderCommand(args.prompt.trim() ? args.prompt.trim().split(/\s+/) : [])
   if (args.command === 'auth') {
     const status = botConnectorCredentialStatus()
-    if (status.configured) {
+    if (isConfigured('botconnector')) {
       console.log('BotConnector credential configured via ' +
-        (status.source === 'environment' ? 'BOTCONNECTOR_API_KEY environment variable.' : 'existing public BCCLI bc-cloud login.') +
+        (status.configured
+          ? (status.source === 'environment' ? 'BOTCONNECTOR_API_KEY environment variable.' : 'existing public BCCLI bc-cloud login or new protected BCCLI key.')
+          : 'protected BCCLI provider storage.') +
         ' Not verified online. No AI request was sent.')
       return 0
     }
     console.error('BotConnector credential not configured or unreadable. ' +
-      'Use the existing legacy login via "bccli-legacy login bc-cloud" or set BOTCONNECTOR_API_KEY. ' +
+      'Run "bccli provider add botconnector" or set BOTCONNECTOR_API_KEY. ' +
       'No credential was changed and no AI request was sent.')
     return 1
   }

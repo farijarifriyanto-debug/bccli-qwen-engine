@@ -43,7 +43,7 @@ test('provider use and remove operate only with explicitly validated IDs',async(
  assert.equal(await runProviderCommand(['remove','openai'],deps),0)
  assert.deepEqual(events,['use:openai','remove:openai'])
  await assert.rejects(runProviderCommand(['add','https://evil.example'],deps),/Unknown provider/)
- await assert.rejects(runProviderCommand(['add','botconnector'],deps),/"bccli-legacy login/)
+ // BotConnector keys now use the same protected provider workflow.
  await assert.rejects(runProviderCommand(['add','openrouter','--key','LEAKED'],deps),/Use: provider/)
  await assert.rejects(runProviderCommand(['remove'],deps),/Use: provider/)
  await assert.rejects(runProviderCommand(['use','openai','other'],deps),/Use: provider/)

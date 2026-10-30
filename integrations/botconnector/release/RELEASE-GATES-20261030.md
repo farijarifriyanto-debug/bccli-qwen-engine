@@ -30,3 +30,10 @@
 Maintain candidate `0.1.0-rc.3` and the stable `0.4.17` without overwriting user state. Verify the scripted `0.5.0-rc.4` archive and run prerelease tests in an isolated workspace. Promote via an explicit `next` prerelease workflow only after the remaining prerelease gates pass. Stable remains **HOLD** until SDK and feature parity are resolved.
 
 - RC.4 startup defaults directly into chat when the selected provider's credential and chosen model are valid; `--choose` and in-session `/provider` still open the picker. Model selection is stored per provider in the owner directory and revalidated on each startup.
+
+## RC.5 follow-up (after the initial 30 October audit)
+
+- **Cloud first-run key input (Windows):** direct setup is implemented in the parent BCCLI terminal. The interactive picker validates available models before persisting a replacement key, preventing loss of working credentials on rejected keys. Dedicated fake-key tests are added.
+- **Repository:** renamed to bccli-runtime; product-facing README is branded BCCLI while Apache-2.0 upstream notices remain.
+- **Packaging:** immutable RC.5 GitHub prerelease workflow must pass the full Windows/Linux Node 22/24 matrix and clean-install smoke; RC.4 is not republished.
+- **Still blocked for stable:** SDK compatibility; machine-output parity; the legacy commands, integrations and approved MCP flows; real interactive TTY/live billing canary; Linux/macOS credential persistence. Do not change npm latest until accepted.
