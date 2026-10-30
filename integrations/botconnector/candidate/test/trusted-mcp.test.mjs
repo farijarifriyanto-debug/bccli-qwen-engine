@@ -17,7 +17,8 @@ test('MCP remains explicitly opt-in and uses only owner config directory', () =>
   fs.writeFileSync(good, value)
   fs.writeFileSync(bad, value)
   try {
-    assert.equal(resolveTrustedMcpConfig(good, { home }), good)
+    // macOS aliases /var to /private/var; the secure resolver returns a canonical path.
+    assert.equal(resolveTrustedMcpConfig(good, { home }), fs.realpathSync(good))
     assert.throws(() => resolveTrustedMcpConfig(bad, { home }), /owner config directory/)
     assert.throws(() => resolveTrustedMcpConfig('mcp.json', { home }), /absolute path/)
     assert.throws(() => resolveTrustedMcpConfig(path.join(home, 'missing.json'), { home }), /readable/)
