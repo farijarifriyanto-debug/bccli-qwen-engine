@@ -20,8 +20,18 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-2PLSL3VQ.js': 'f475f043f1ab8314a64699ebb45e43026bb1a1fe65f1ac259f1898afb8a6c5d9',
   'chunks/chunk-ERV2ECV3.js': '7d2511a8317ee2c44edd2fd62b43966b9acfbfaac79175cd0cc9fb9ed42051c6',
   'chunks/server-SJNWHHV4.js': '42ceeddc69dda95fbaac276cbd94e99432892305d169d248e760c9d94aab6eaf',
+  'chunks/en-SBI6QJ2J.js': '85fb77f8a9c0fc864f53a55d8a819dfb6ddb98a0c78ef1eaa9af306b313aa6e8',
+  'locales/en.js': 'd42369efe23514787a74aa4fb3b63ad339b8ec29edf5973c6aeecd8649a21639',
+  'chunks/acpAgent-U6TCKYWP.js': '5a22dd6985c9666f85817ffd0565366b8af2b2771178ab883423a1b774688166',
+  'chunks/chunk-2MB4ZSKF.js': 'c442969e3866fe10380be412275f8646305a1ec8437524537189133f61f5eb7b',
+  'chunks/chunk-3TK35SQL.js': '63e04f9ae44be6712d75a71ad870fc3c987219fbdd4c3c63a085b264402e797d',
+  'chunks/chunk-44WSAMWG.js': 'a85e4033daea57302376e39e8323f50f17c65cb53cbdbddd7cd230ba88e19091',
+  'chunks/chunk-4BFQ7QQC.js': '082f99e2b58e97fb09a4c7b5ec905f690b46088f35dbaa0fc974c9f78e7f6b0f',
+  'chunks/chunk-55KTWTOV.js': '45516f9524545f18cdae2f1d72092026231007f8961cd2aed4ce3049b5b71c59',
+  'chunks/chunk-B3ZFUGTC.js': 'f3f57aafbaeab56ca58f5d3173751d30e5fef815aeaf8dc9b46e6ea9e85eb528',
+  'chunks/chunk-GGVWG4SI.js': '945c7f4e9b3697003c165b7bc5d007c9b87140d1fad7be084d7b253d8d2b476c',
 })
-const BRAND_REVISION = 'bccli-new-20261030-provider-search-and-add-v9'
+const BRAND_REVISION = 'bccli-new-20261031-product-surfaces-sweep-v11'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -120,6 +130,30 @@ export function guardUpstreamProviderCommands(text) {
 // file formats such as QWEN.md, which are still used by the upstream engine.
 function renameProductLanguage(text) {
   const labels = [
+    ['List tasks across Qwen Code WebShell', 'List tasks across BCCLI agent sessions'],
+    ['Automatic backend Qwen Code text', 'Automatic background BCCLI text'],
+    ['Goal not restored: it was recorded by an earlier version of Qwen Code', 'Goal not restored: it was recorded by an earlier BCCLI runtime'],
+    ['Written by Qwen Code', 'Written by BCCLI'],
+    ['Please reinstall Qwen Code', 'Please reinstall BCCLI'],
+    ['Agent commands (forwarded to Qwen Code):', 'Agent commands (forwarded to BCCLI):'],
+    ['Qwen Code Agent update', 'BCCLI Agent update'],
+    ['Qwen Code Agent (', 'BCCLI Agent ('],
+    ['Qwen Code Agent', 'BCCLI Agent'],
+    ['Run Qwen Code as a local HTTP daemon', 'Run BCCLI as a local HTTP daemon'],
+    ['Join another Qwen Code as a runtime', 'Join another BCCLI session as a runtime'],
+    ['This is the Qwen Code. We are setting up the context for our chat.', 'This is a coding assistant. We are setting up the context for our chat.'],
+    ['Some features may not work perfectly with Qwen Code', 'Some features may not work perfectly with BCCLI'],
+
+    ['How is Qwen doing this session? (optional)', 'How is BCCLI doing this session? (optional)'],
+    ['Qwen Code is processing a request', 'BCCLI is processing a request'],
+    ['Qwen Code is streaming a model response', 'BCCLI is streaming a model response'],
+    ['Qwen Code keeps working', 'BCCLI keeps working'],
+    ['You can close this window and return to Qwen Code.', 'You can close this window and return to BCCLI.'],
+    ['In interactive Qwen Code sessions', 'In interactive BCCLI sessions'],
+    ['Generated with Qwen Code', 'Generated with BCCLI'],
+    ['restart Qwen Code', 'restart BCCLI'],
+    ['Qwen Code on a host with a microphone', 'BCCLI on a host with a microphone'],
+    ['How is Qwen doing this session?', 'How is BCCLI doing this session?'],
     ['To see changes, Qwen Code must be restarted.', 'To see changes, BCCLI must be restarted.'],
     ['To apply the trust changes, Qwen Code must be restarted.', 'To apply trust changes, restart BCCLI.'],
     ["Press 'r' to restart Qwen Code", "Press 'r' to restart BCCLI"],
@@ -167,6 +201,21 @@ function renameProductLanguage(text) {
 }
 
 export function patchUiChunk(file, text) {
+  if ([
+    'chunks/acpAgent-U6TCKYWP.js',
+    'chunks/chunk-2MB4ZSKF.js',
+    'chunks/chunk-3TK35SQL.js',
+    'chunks/chunk-44WSAMWG.js',
+    'chunks/chunk-4BFQ7QQC.js',
+    'chunks/chunk-55KTWTOV.js',
+    'chunks/chunk-B3ZFUGTC.js',
+    'chunks/chunk-GGVWG4SI.js',
+  ].includes(file)) return renameProductLanguage(text)
+  if (file === 'chunks/en-SBI6QJ2J.js' || file === 'locales/en.js') {
+    const expected = text.split('How is Qwen doing this session? (optional)').length - 1
+    if (expected !== 2) throw Error('BCCLI English feedback translation locator changed.')
+    return renameProductLanguage(text)
+  }
   if (file === 'chunks/server-SJNWHHV4.js') {
     // An additional bundled server/agent instruction uses an upstream product
     // identity. Neutralize only that exact clause; never invent a model name.
@@ -205,6 +254,18 @@ export function patchUiChunk(file, text) {
       'qwen --resume ${sessionId}',
       'bccli -c',
       'Ink session-exit command')
+    // The upstream feedback popup is not BotConnector's product. It must
+    // not be shown or relabeled as a BotConnector-owned feedback service.
+    if (result.includes('var FeedbackDialog=__name')) {
+      result = replaceOnce(result,
+        'var FEEDBACK_DIALOG_KEYS=["1","2","3","0"];var FeedbackDialog=',
+        'var FEEDBACK_DIALOG_KEYS=["1","2","3","0"];const BCCLI_DISABLE_UPSTREAM_FEEDBACK=true;var FeedbackDialog=',
+        'upstream feedback suppression declaration')
+      result = replaceOnce(result,
+        'settings.merged.ui?.enableUserFeedback===false||!lastMessageIsAIResponse(history)',
+        'settings.merged.ui?.enableUserFeedback===false||BCCLI_DISABLE_UPSTREAM_FEEDBACK||!lastMessageIsAIResponse(history)',
+        'upstream feedback suppression guard')
+    }
     // The Ink viewport enters the alternate screen and captures scroll/drag
     // events. On Windows, prefer real terminal scrollback and native selection.
     // Users may opt back into the in-app viewport with BCCLI_ENABLE_APP_MOUSE=1.
@@ -277,10 +338,10 @@ export function patchUiChunk(file, text) {
       'headless approval warning')
   }
   if (file === 'chunks/chunk-ERV2ECV3.js') {
-    return replaceExactly(text,
+    return renameProductLanguage(replaceExactly(text,
       'Qwen Code requires permission to use ',
       'BCCLI requires permission to use ', 4,
-      'user-facing tool permission errors')
+      'user-facing tool permission errors'))
   }
   if (file === 'chunks/chunk-OV3EBH6J.js') {
     return replaceOnce(text,
