@@ -39,5 +39,15 @@ jobs:
         run: npm run build
       - name: Candidate unit and security tests
         run: npm test
+      - name: Verify candidate npm tarball manifest
+        shell: pwsh
+        run: |
+          $pack = npm pack --ignore-scripts --dry-run --json | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $paths = @($pack[0].files | ForEach-Object { $_.path })
+          foreach ($required in @('LICENSE', 'THIRD_PARTY_NOTICES.md', 'cli.mjs', 'credentials.mjs')) {
+            if ($paths -notcontains $required) { throw "Candidate npm package missing $required" }
+          }
+          Write-Output ("Validated package files: " + $paths.Count)
       - name: Upstream-backed integration (Node 24 shutdown gate)
         run: npm run test:integration
