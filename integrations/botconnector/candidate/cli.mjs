@@ -5,7 +5,7 @@ import { prepareBrandedQwen } from './branding.mjs'
 import { botConnectorCredentialStatus } from './credentials.mjs'
 import { resolveProvider, selectedProvider, providerDefinition } from './providers.mjs'
 import { runProviderCommand } from './provider-cli.mjs'
-import { startupMenu, PROVIDER_SWITCH_EXIT } from './startup-menu.mjs'
+import { startupMenu, autoSelectStartup, PROVIDER_SWITCH_EXIT } from './startup-menu.mjs'
 
 function help() {
   console.log([
@@ -23,7 +23,8 @@ function help() {
     '  bccli provider list|add|use|remove [ID]  (manage provider keys)',
     '  bccli models --provider ID  (list models for provider)',
     '  bccli chat --provider ID --model MODEL_ID',
-    '  bccli  (choose a provider and model interactively)',
+    '  bccli  (open chat directly with active provider and last model)',
+    '  bccli --choose  (open provider/model picker explicitly)',
     '  During chat: /provider or /auth to reopen provider and key picker.',
     '',
     'Credentials: existing BotConnector login or encrypted per-user provider API keys (Windows).',
@@ -47,7 +48,8 @@ async function main() {
     console.log(pkg.version)
     return 0
   }
-  const args = parseArgs(argv)
+  const forceChoose = argv.length === 1 && argv[0] === '--choose'
+  const args = forceChoose ? { command: 'chat', prompt: '', model: undefined } : parseArgs(argv)
   if (args.command === 'provider') return runProviderCommand(args.prompt.trim() ? args.prompt.trim().split(/\s+/) : [])
   if (args.command === 'auth') {
     const status = botConnectorCredentialStatus()
@@ -75,7 +77,10 @@ async function main() {
   let chosen
   const showPicker = args.command === 'chat' && !args.prompt && !args.model
   if (showPicker) {
-    chosen = await startupMenu({
+    chosen = forceChoose ? undefined : await autoSelectStartup({
+      ...(args.provider ? { providerId: args.provider } : {}),
+    })
+    if (!chosen) chosen = await startupMenu({
       ...(args.provider ? { currentProvider: () => args.provider } : {}),
     })
   } else {

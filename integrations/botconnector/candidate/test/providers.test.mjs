@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   PROVIDERS, ALLOWED_PROVIDER_ENDPOINTS, providerRoot, providerDefinition,
   saveProviderKey, storedProviderKey, isConfigured, selectedProvider,
-  useProvider, removeProvider, resolveProvider,
+  useProvider, removeProvider, resolveProvider, selectedModel, saveSelectedModel,
 } from '../providers.mjs'
 import { startGatewayProxy } from '../proxy.mjs'
 import { childEnvironment, parseArgs } from '../core.mjs'
@@ -96,4 +96,24 @@ test('provider subprocess env strips all inherited provider credentials and isol
   }
   const bc=childEnvironment(inherited,'LOCAL_TOKEN','model-x',{providerId:'botconnector'})
   assert.notEqual(bc.QWEN_HOME,env.QWEN_HOME)
+})
+
+test('last model is stored per provider as a harmless ID, not a credential', () => {
+  const root=mkdtempSync(join(tmpdir(),'bccli-selected-model-'))
+  try {
+    assert.equal(selectedModel('botconnector',{root}),undefined)
+    saveSelectedModel('botconnector','ling-3.0-flash',{root})
+    saveSelectedModel('openrouter','example/vision-v1',{root})
+    assert.equal(selectedModel('botconnector',{root}),'ling-3.0-flash')
+    assert.equal(selectedModel('openrouter',{root}),'example/vision-v1')
+    assert.equal(readFileSync(join(root,'active-model-openrouter'),'utf8'),'example/vision-v1\n')
+    assert.throws(()=>saveSelectedModel('openrouter','not a valid model',{root}),/Invalid model ID/)
+    assert.throws(()=>saveSelectedModel('botconnector','line\nbreak',{root}),/Invalid model ID/)
+    writeFileSync(join(root,'active-model-botconnector'),'invalid value\n')
+    assert.throws(()=>selectedModel('botconnector',{root}),/Invalid saved model selection/)
+    const path=join(root,'active-model-openai')
+    mkdirSync(path)
+    assert.throws(()=>selectedModel('openai',{root}),/Unsafe model selection file/)
+    assert.throws(()=>saveSelectedModel('openai','gpt-4.1',{root}),/Unsafe model selection path/)
+  } finally { rmSync(root,{recursive:true,force:true}) }
 })

@@ -37,6 +37,8 @@ test('help remains offline and never impersonates the public executable', () => 
   assert.equal(run.status, 0, run.stderr)
   assert.ok(run.stdout.includes('BCCLI | BotConnector Coding Agent'))
   assert.match(run.stdout, /bccli -p/)
+  assert.match(run.stdout, /bccli --choose/)
+  assert.match(run.stdout, /open chat directly with active provider and last model/)
   assert.match(run.stdout, /Local new-engine RC; the public npm stable release is unchanged/)
   assert.ok(run.stdout.includes('~/.bccli-preview/'))
   assert.doesNotMatch(run.stdout, /isolated coding agent candidate|bccli-preview -p/)
@@ -70,4 +72,11 @@ test('auth status checks only existing credentials and never prints them or cont
     assert.doesNotMatch(over.stdout+over.stderr,/ALSO_FAKE_TOKEN|NOT_A_REAL_SECRET_TOKEN/)
     assert.equal(readFileSync(join(home,'credentials'),'utf8'),JSON.stringify({'bc-cloud':'NOT_A_REAL_SECRET_TOKEN'}))
   } finally { rmSync(home,{recursive:true,force:true}) }
+})
+
+test('manual --choose menu is explicit and never turns into a non-TTY paid request', () => {
+  const run = invoke(['--choose'])
+  assert.equal(run.status,1)
+  assert.match(run.stderr,/Interactive mode requires a TTY/)
+  assert.doesNotMatch(run.stdout+run.stderr,/NOT_A_REAL_SECRET_TOKEN/)
 })

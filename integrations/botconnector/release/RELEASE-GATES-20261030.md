@@ -5,14 +5,14 @@
 - Rebrand remains a pinned view overlay over unmodified `@qwen-code/qwen-code@0.26.3`; no forked coding engine.
 - Main Windows launcher `bccli` runs `0.1.0-rc.3`; separate `bccli-legacy` remains `0.4.17`.
 - BCCLI candidate integration CI checks Windows Node 22/24; no paid inference is used.
-- Offline candidate packaging script `node integrations/botconnector/release/prepare-next.mjs` produces `@botconnector/bccli@0.5.0-rc.3` with executable `bccli` and `publishConfig.tag=next`. It **never publishes**.
+- Offline candidate packaging script `node integrations/botconnector/release/prepare-next.mjs` produces `@botconnector/bccli@0.5.0-rc.4` with executable `bccli` and `publishConfig.tag=next`. It **never publishes**.
 - RC.1 previously passed owner Windows fresh offline installation and the 4-platform CI matrix. RC.2 must independently pass the same fresh-install gate before publication.
 - Native upstream Qwen `-r [SESSION_UUID]` argument passthrough is merged with offline tests; actual interactive TTY resume remains a manual release gate.
 - Identity correction in RC.3 removes the remaining upstream `You are Qwen Code` server instruction and distinguishes client app, upstream engine and active runtime AI model; no forced model persona.
 
 ## Publication policy
 
-**Do not publish to the `latest` npm dist-tag or replace `@botconnector/bccli@0.4.17`.** `0.5.0-rc.3` is an opt-in testing artifact until the gates below pass. Even `next` publication requires explicit release sign-off and npm registry permissions. No automatic publish step is part of this repository.
+**Do not publish to the `latest` npm dist-tag or replace `@botconnector/bccli@0.4.17`.** `0.5.0-rc.4` is an opt-in testing artifact until the gates below pass. Even `next` publication requires explicit release sign-off and npm registry permissions. No automatic publish step is part of this repository.
 
 ## Outstanding release blockers for stable BCCLI
 
@@ -27,4 +27,6 @@
 
 ## Immediate next safe action
 
-Maintain candidate `0.1.0-rc.3` and the stable `0.4.17` without overwriting user state. Verify the scripted `0.5.0-rc.3` archive and run prerelease tests in an isolated workspace. Promote via an explicit `next` prerelease workflow only after the remaining prerelease gates pass. Stable remains **HOLD** until SDK and feature parity are resolved.
+Maintain candidate `0.1.0-rc.3` and the stable `0.4.17` without overwriting user state. Verify the scripted `0.5.0-rc.4` archive and run prerelease tests in an isolated workspace. Promote via an explicit `next` prerelease workflow only after the remaining prerelease gates pass. Stable remains **HOLD** until SDK and feature parity are resolved.
+
+- RC.4 startup defaults directly into chat when the selected provider's credential and chosen model are valid; `--choose` and in-session `/provider` still open the picker. Model selection is stored per provider in the owner directory and revalidated on each startup.

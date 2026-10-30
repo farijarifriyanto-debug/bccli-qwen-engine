@@ -2,11 +2,33 @@
 // This runs in the parent process BEFORE the coding agent is launched; real
 // API keys never enter Qwen's process or any coding/MCP subprocess.
 import { createInterface } from 'node:readline/promises'
-import { PROVIDERS, isConfigured, resolveProvider, selectedProvider, saveProviderKey, useProvider } from './providers.mjs'
+import { PROVIDERS, isConfigured, resolveProvider, selectedProvider, selectedModel, saveSelectedModel, saveProviderKey, useProvider } from './providers.mjs'
 import { hiddenApiKey } from './provider-cli.mjs'
 import { DEFAULT_MODEL, discoverModels, selectModel } from './core.mjs'
 
 export const PROVIDER_SWITCH_EXIT = 51
+
+// Returning users go straight to chat with the selected provider and model.
+// Eligibility is still verified against the live provider's available models.
+export async function autoSelectStartup({
+  providerId = selectedProvider(),
+  configured = isConfigured,
+  remembered = selectedModel,
+  resolve = resolveProvider,
+  list = discoverModels,
+  defaultModel = DEFAULT_MODEL,
+  env = process.env,
+} = {}) {
+  if (!configured(providerId)) return undefined
+  const requested = providerId === 'botconnector'
+    ? (env.BOTCONNECTOR_MODEL_ID || remembered(providerId) || defaultModel)
+    : remembered(providerId)
+  if (!requested) return undefined
+  const profile = resolve(providerId)
+  const models = await list({ key: profile.key, endpoint: profile.endpoint })
+  if (!models.some(item => item.id === requested)) return undefined
+  return { providerId, model: selectModel(models, requested), key: profile.key, endpoint: profile.endpoint }
+}
 
 export async function terminalQuestion(label, { input = process.stdin, output = process.stdout } = {}) {
   const rl = createInterface({ input, output, terminal: !!input.isTTY })
@@ -29,6 +51,8 @@ export async function startupMenu({
   configured = isConfigured,
   saveKey = saveProviderKey,
   use = useProvider,
+  remembered = selectedModel,
+  saveModel = saveSelectedModel,
   resolve = resolveProvider,
   list = discoverModels,
   defaultModel = DEFAULT_MODEL,
@@ -69,7 +93,9 @@ export async function startupMenu({
   const models = await list({ key: profile.key, endpoint: profile.endpoint })
   if (!models.length) throw Error('Tidak ada model untuk provider ini.')
   const all = [...models].sort((a, b) => a.id.localeCompare(b.id))
-  const preferred = providerId === 'botconnector' && all.some(m => m.id === defaultModel) ? defaultModel : undefined
+  const previous = remembered(providerId)
+  const preferred = all.some(m => m.id === previous) ? previous :
+    providerId === 'botconnector' && all.some(m => m.id === defaultModel) ? defaultModel : undefined
   let filtered = all
   for (;;) {
     out('')
@@ -88,6 +114,7 @@ export async function startupMenu({
     selectModel(all, candidate)
     // Save active provider only after valid credentials and model are confirmed.
     use(providerId)
+    saveModel(providerId, candidate)
     return { providerId, model: candidate, key: profile.key, endpoint: profile.endpoint }
   }
 }

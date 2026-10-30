@@ -98,6 +98,34 @@ export function selectedProvider({ env = process.env, root = providerRoot({env})
   providerDefinition(id)
   return id
 }
+// Model IDs are public selections, never credentials. Keep one per provider
+// so a returning user goes directly to chat without repeating the model picker.
+const MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/
+export function selectedModel(id, { env = process.env, root = providerRoot({ env }) } = {}) {
+  providerDefinition(id)
+  if (!ownerDirectory(root)) return undefined
+  const path = join(root, 'active-model-' + id)
+  if (!existsSync(path)) return undefined
+  const info = lstatSync(path)
+  if (!info.isFile() || info.isSymbolicLink() || info.size > 300) throw Error('Unsafe model selection file.')
+  const value = readFileSync(path, 'utf8').trim()
+  if (!MODEL_ID.test(value)) throw Error('Invalid saved model selection.')
+  return value
+}
+
+export function saveSelectedModel(id, model, { env = process.env, root = providerRoot({ env }) } = {}) {
+  providerDefinition(id)
+  if (!MODEL_ID.test(model)) throw Error('Invalid model ID.')
+  ownerDirectory(root, { create: true })
+  const path = join(root, 'active-model-' + id)
+  if (existsSync(path) && (!lstatSync(path).isFile() || lstatSync(path).isSymbolicLink())) {
+    throw Error('Unsafe model selection path.')
+  }
+  const tmp = path + '.' + randomBytes(8).toString('hex') + '.tmp'
+  try { writeFileSync(tmp, model + '\n', { flag: 'wx', encoding: 'utf8', mode: 0o600 }); renameSync(tmp, path) }
+  finally { rmSync(tmp, { force: true }) }
+}
+
 export function useProvider(id, { env = process.env, root = providerRoot({env}) } = {}) {
   providerDefinition(id)
   if (!isConfigured(id, { env, root })) throw Error('Provider is not configured. Use: provider add ' + id + ' (or its API key environment variable).')
