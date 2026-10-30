@@ -54,7 +54,7 @@ test('menu offers secure key add/delete and masks all stored key values', async 
   const proxy=await startGatewayProxy(fixture.opts)
   try {
     const ui=command(proxy)
-    const menu=await ui.call('')
+    const menu=await ui.call('list')
     assert.match(menu.content,/Save\/replace key: \/provider add NAME/)
     assert.match(menu.content,/Delete saved key: \/provider remove NAME/)
     const saved=await ui.call('add openai')
@@ -64,7 +64,7 @@ test('menu offers secure key add/delete and masks all stored key values', async 
     assert.deepEqual(fixture.calls.filter(x=>x[0]==='prompt'),[['prompt','openai']])
     assert.doesNotMatch(JSON.stringify(menu)+JSON.stringify(saved), /VALID_EXAMPLE_SECRET|OLD_BC_SECRET|LOCAL_SESSION_TOKEN/)
     const catalog=await ui.call('openai')
-    assert.match(catalog.content,/gpt-4\.1/)
+    assert.equal(catalog.type,'dialog')
     const selected=await ui.call('openai gpt-4.1')
     assert.equal(selected.messageType,'info')
     assert.equal(ui.state.current,'gpt-4.1')

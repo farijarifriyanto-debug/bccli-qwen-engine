@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const VERSION = '0.5.2-rc.4'
+const VERSION = '0.5.2-rc.5'
 const ENGINE = '@qwen-code/qwen-code@0.26.3'
 const PINNED_ENGINE_SHA512 = 'sha512-z8dL1+N2eI1RwQm/tceJmFbxPtdin4TKpFucoau8Nl4bm/DsXsohQLFPM45t20sVzAaYg8aH8qLpX5RCIiXE3A=='
 const LEGACY = '@botconnector/bccli@0.4.17'
@@ -62,7 +62,7 @@ assert.ok(existsSync(join(extracted, 'LICENSE')))
 const files = [
   'LICENSE','THIRD_PARTY_NOTICES.md','cli.mjs','core.mjs','proxy.mjs',
   'gateway.mjs','branding.mjs','credentials.mjs','model-command.mjs',
-  'providers.mjs','provider-cli.mjs','startup-menu.mjs','legacy-compat.mjs', 'provider-command.mjs', 'native-key-dialog.mjs',
+  'providers.mjs','provider-cli.mjs','startup-menu.mjs','legacy-compat.mjs', 'provider-command.mjs', 'native-key-dialog.mjs', 'provider-dialog.mjs',
 ]
 for (const file of files) {
   assert.ok(existsSync(join(source, file)), 'Required BCCLI file missing: ' + file)

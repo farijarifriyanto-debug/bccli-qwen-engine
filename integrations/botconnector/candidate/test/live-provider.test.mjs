@@ -59,11 +59,11 @@ test('switch BotConnector to OpenAI in the same chat, with model and proxy routi
   const proxy = await startGatewayProxy(f.proxyOptions)
   try {
     const x = slash(proxy)
-    const menu = await x.call('')
+    const menu = await x.call('list')
     assert.match(menu.content, /openai/)
     assert.match(menu.content, /ling-3.0-flash|botconnector/)
     const catalog = await x.call('openai')
-    assert.match(catalog.content, /gpt-4\.1/)
+    assert.equal(catalog.type, 'dialog')
     const selected = await x.call('openai 1')
     assert.match(selected.content, /without exiting this chat|current chat remains open/)
     assert.equal(x.models.current, 'gpt-4.1')
@@ -87,7 +87,7 @@ test('reject unconfigured provider, invalid model, wrong token; never change cur
   const proxy = await startGatewayProxy(f.proxyOptions)
   try {
     const x = slash(proxy)
-    assert.match((await x.call('groq')).content, /Cancelled/)
+    assert.equal((await x.call('groq')).type, 'dialog')
     assert.equal((await x.call('openai ../../unsafe')).messageType, 'error')
     assert.equal((await fetch(proxy.baseUrl + '/bccli/providers', { headers: { authorization: 'Bearer NOT_LOCAL' } })).status, 401)
     assert.equal((await fetch(proxy.baseUrl + '/bccli/provider/switch', {

@@ -4,7 +4,7 @@ import vm from 'node:vm'
 import { startGatewayProxy } from '../proxy.mjs'
 import { BCCLI_PROVIDER_COMMAND } from '../provider-command.mjs'
 
-test('selecting a provider without key opens masked dialog in same chat, then shows models', async () => {
+test('selecting a provider opens arrow-key dialog; no key enters chat text', async () => {
   const credentials = new Map([['botconnector','TEST_BC_KEY']])
   const prompted = []
   const proxy = await startGatewayProxy({
@@ -28,10 +28,10 @@ test('selecting a provider without key opens masked dialog in same chat, then sh
       fetch,AbortSignal,JSON,Object,String,Number,RegExp,Error,__name:f=>f,
     })
     const result=await command.action({invocation:{args:'openai'},services:{}},'openai')
-    assert.deepEqual(prompted,['openai'])
-    assert.equal(credentials.get('openai'),'TEST_OPENAI_KEY')
-    assert.match(result.content,/Models for openai/)
-    assert.match(result.content,/gpt-4\.1-mini/)
+    assert.deepEqual(prompted,[])
+    assert.equal(credentials.has('openai'),false)
+    assert.equal(result.type,'dialog')
+    assert.equal(result.dialog,'auth')
     assert.doesNotMatch(JSON.stringify(result),/TEST_OPENAI_KEY|TEST_BC_KEY/)
   } finally { await proxy.close() }
 })

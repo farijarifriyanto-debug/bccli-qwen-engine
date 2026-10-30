@@ -6,6 +6,7 @@ import { basename, dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { BCCLI_MODEL_COMMAND } from './model-command.mjs'
 import { BCCLI_PROVIDER_COMMAND } from './provider-command.mjs'
+import { BCCLI_PROVIDER_DIALOG } from './provider-dialog.mjs'
 
 const VERSION = '0.26.3'
 const SOURCE_HASHES = Object.freeze({
@@ -20,7 +21,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-ERV2ECV3.js': '7d2511a8317ee2c44edd2fd62b43966b9acfbfaac79175cd0cc9fb9ed42051c6',
   'chunks/server-SJNWHHV4.js': '42ceeddc69dda95fbaac276cbd94e99432892305d169d248e760c9d94aab6eaf',
 })
-const BRAND_REVISION = 'bccli-new-20261030-provider-key-manager-v7'
+const BRAND_REVISION = 'bccli-new-20261030-arrow-provider-picker-v8'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -212,6 +213,16 @@ export function patchUiChunk(file, text) {
       'process.platform==="win32"&&process.env.BCCLI_ENABLE_APP_MOUSE!=="1"?false:settings.merged.ui?.useTerminalBuffer',
       3,
       'Ink native scrollback and mouse selection on Windows')
+    // Reuse the existing Ink authentication dialog slot for BCCLI's own
+    // authenticated provider picker. The upstream AuthDialog would show the
+    // wrong provider configuration and cannot switch BCCLI proxy routes.
+    const start = result.indexOf('function AuthDialog(){')
+    const ending = '__name(AuthDialog,"AuthDialog");'
+    const end = result.indexOf(ending, start)
+    if (start >= 0 && (end < 0 || result.indexOf(ending, end + ending.length) >= 0)) {
+      throw Error('BCCLI arrow-key provider dialog locator changed upstream.')
+    }
+    if (start >= 0) result = result.slice(0,start) + BCCLI_PROVIDER_DIALOG + result.slice(end)
     return renameProductLanguage(result)
   }
   if (file === 'chunks/start-opentui-ui-Q34XCEMN.js') {
