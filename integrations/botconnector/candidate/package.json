@@ -25,6 +25,8 @@
     "sharp": "0.35.5"
   },
   "files": [
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
     "cli.mjs",
     "core.mjs",
     "proxy.mjs",
