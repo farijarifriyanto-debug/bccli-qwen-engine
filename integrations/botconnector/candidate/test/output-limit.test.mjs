@@ -31,6 +31,22 @@ test('Kimi K2.7 Code uses max_completion_tokens, not incompatible max_tokens', (
   assert.equal(boundChatOutputTokens({...request,max_tokens:64000,max_completion_tokens:99999}).max_completion_tokens,4096)
   assert.equal(boundChatOutputTokens({...request,model:'glm-5.3-flash'}).max_tokens,4096)
 })
+test('Kimi normalizes numeric-string bounds without affecting other models', () => {
+  const legacy = {model:'kimi-k2.7-code',max_tokens:'64000'}
+  const fixed=boundChatOutputTokens(legacy)
+  assert.equal(fixed.max_completion_tokens,4096)
+  assert.equal(Object.hasOwn(fixed,'max_tokens'),false)
+  assert.equal(legacy.max_tokens,'64000')
+  assert.equal(boundChatOutputTokens({model:'kimi-k2.7-code',max_tokens:'128',max_completion_tokens:'32'}).max_completion_tokens,32)
+  assert.equal(boundChatOutputTokens({model:'kimi-k2.7-code',max_completion_tokens:'10000'}).max_completion_tokens,4096)
+  for(const invalid of ['bad','12e3','9007199254740992']) {
+    const input={model:'kimi-k2.7-code',max_tokens:invalid}
+    assert.strictEqual(boundChatOutputTokens(input),input)
+  }
+  const unrelated={model:'glm-5.3-flash',max_tokens:'64000'}
+  assert.strictEqual(boundChatOutputTokens(unrelated),unrelated)
+})
+
 test('Kimi modern output cap remains bounded and never increases request', () => {
   const original={model:'kimi-k2.7-code',max_completion_tokens:2048}
   assert.strictEqual(boundChatOutputTokens(original),original)
