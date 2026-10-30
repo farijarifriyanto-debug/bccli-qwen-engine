@@ -35,7 +35,7 @@ jobs:
           $out = Join-Path $env:RUNNER_TEMP 'bccli-next-rc'
           & node integrations/botconnector/release/prepare-next.mjs --out $out
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Install prerelease tarball into a clean isolated workspace
+      - name: Install prerelease tarball into a clean isolated workspace (normal registry)
         shell: pwsh
         run: |
           $dest = Join-Path $env:RUNNER_TEMP 'bccli-next-install'
@@ -43,7 +43,7 @@ jobs:
           $tarball = Join-Path (Join-Path $env:RUNNER_TEMP 'bccli-next-rc') 'botconnector-bccli-0.5.0-rc.1.tgz'
           Push-Location $dest
           try {
-            & npm install --offline --ignore-scripts --no-audit --no-fund $tarball
+            & npm install --ignore-scripts --no-audit --no-fund $tarball
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $command = if ($IsWindows) {
               Join-Path $dest 'node_modules/.bin/bccli.cmd'
