@@ -23,7 +23,7 @@ export function assertCandidateRuntimeSupported({ platform = process.platform, n
   }
 }
 const MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/
-const ALLOWED = new Set(['models', 'run', 'chat', 'resume'])
+const ALLOWED = new Set(['models', 'run', 'chat', 'resume', 'auth'])
 // Public BCCLI commands are not supported by this isolated candidate. Do
 // not accidentally treat them as AI prompts, which could spend user credits.
 const PUBLIC_ONLY_COMMANDS = new Set([
@@ -38,6 +38,16 @@ export function parseArgs(argv) {
   // "login -p" might accidentally become a billable model prompt.
   if (args.length && PUBLIC_ONLY_COMMANDS.has(args[0])) {
     throw Error('Command "' + args[0] + '" is available only in public BCCLI 0.4.17, not this isolated candidate. No AI request was sent.')
+  }
+  // The public -c/--continue resumes the last *current-project* session.
+  // Candidate Qwen 'resume' already implements that behavior in isolation.
+  const continueFlags = args.filter(a => a === '-c' || a === '--continue')
+  if (continueFlags.length > 1) throw Error('Specify -c / --continue only once.')
+  if (continueFlags.length) {
+    if (args.some(a => a === '-p' || a === '--print')) throw Error('Combining -c with -p is not yet supported by the candidate.')
+    if (ALLOWED.has(args[0])) throw Error('-c / --continue is not compatible with an explicit subcommand; use resume directly.')
+    args.splice(args.indexOf(continueFlags[0]), 1)
+    args.unshift('resume')
   }
   // Keep public BCCLI's common noninteractive invocation as a safe alias.
   // Do not imply parity with public JSON/stream-json or -r session picking.
@@ -69,6 +79,7 @@ export function parseArgs(argv) {
     if (arg.startsWith('-')) throw Error('Unsupported option. POC intentionally blocks passthrough flags.')
     prompt.push(arg)
   }
+  if (command === 'auth' && (model || mcpConfig || json || prompt.join(' ') !== 'status')) throw Error('Use: auth status (offline and read-only).')
   if (command === 'models' && (model || mcpConfig || prompt.length)) throw Error('Use: models [--json].')
   if (command === 'run' && !prompt.length) throw Error('Use: run --model MODEL "prompt".')
   return { command, model, json, prompt: prompt.join(' '), ...(mcpConfig ? { mcpConfig } : {}) }
