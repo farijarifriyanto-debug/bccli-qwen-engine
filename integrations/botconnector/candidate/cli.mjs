@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { DEFAULT_MODEL, discoverModels, launchQwen, parseArgs, resolveQwenEntrypoint, resolveTrustedMcpConfig, selectModel } from './core.mjs'
+import { DEFAULT_MODEL, assertCandidateRuntimeSupported, discoverModels, launchQwen, parseArgs, resolveQwenEntrypoint, resolveTrustedMcpConfig, selectModel } from './core.mjs'
 import { prepareBrandedQwen } from './branding.mjs'
 import { botConnectorKey } from './credentials.mjs'
 
@@ -32,6 +32,7 @@ async function main() {
     else models.forEach((item) => console.log(item.id))
     return 0
   }
+  assertCandidateRuntimeSupported() // Only block affected Windows Node24 coding sessions; model discovery still works.
   const model = selectModel(models, args.model ?? process.env.BOTCONNECTOR_MODEL_ID ?? DEFAULT_MODEL)
   if (!args.prompt && !process.stdin.isTTY) throw Error('Interactive mode requires a TTY; use run "prompt".')
   const mcpConfig = resolveTrustedMcpConfig(args.mcpConfig)
