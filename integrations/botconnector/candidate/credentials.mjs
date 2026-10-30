@@ -34,3 +34,19 @@ export function botConnectorKey({ env = process.env, home = homedir() } = {}) {
   }
   return key.trim()
 }
+
+/**
+ * Offline, read-only status. Reuse the public BCCLI bc-cloud login; never
+ * duplicate, rewrite, mask-print, or migrate the long-lived secret.
+ * "configured" means a credential exists, not that Gateway accepted it.
+ */
+export function botConnectorCredentialStatus({ env = process.env, home = homedir() } = {}) {
+  const viaEnvironment = typeof env.BOTCONNECTOR_API_KEY === 'string' && !!env.BOTCONNECTOR_API_KEY.trim()
+  try {
+    botConnectorKey({ env, home })
+    return { configured: true, source: viaEnvironment ? 'environment' : 'public-bccli' }
+  } catch (error) {
+    // All botConnectorKey errors are intentionally static; do not include keys.
+    return { configured: false, source: 'none', reason: error instanceof Error ? error.message : 'Credential inspection failed.' }
+  }
+}
