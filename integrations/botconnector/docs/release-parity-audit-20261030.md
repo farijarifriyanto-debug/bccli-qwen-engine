@@ -5,7 +5,8 @@
 | Capability/interface | Existing BCCLI 0.4.17 | Candidate evidence | Release status |
 |---|---|---|---|
 | npm public executable | `@botconnector/bccli`, bin `bccli`, SDK `exports` | Private `@botconnector/bccli-qwen-candidate`, bin `bccli-qwen-candidate`; no SDK | **Not interchangeable** |
-| Headless automation | `bccli -p`, `--output-format json/stream-json`, `--fail-on-tool-error` | `run "prompt"` using Qwen headless output; public flags rejected | **BREAKING** |
+| Offline version/help | `bccli -v`, `bccli --help` | `bccli-qwen-candidate -v/--version` (package version) and `--help` tested without key/network | Compatible syntax; candidate identity distinct |
+| Headless automation | `bccli -p`, `--output-format json/stream-json`, `--fail-on-tool-error` | `run "prompt"` and `-p "prompt"` text-only alias supported; JSON/stream-JSON and fail-on-tool-error still unsupported | Partial; **machine-output BREAKING** |
 | Authentication | `bccli login/logout`, provider CLI and stored provider credentials | Reads existing `bc-cloud` key or env; no candidate login/logout command | **BREAKING** |
 | Model/provider selection | `/provider`, `bccli provider`, multiple cloud/local custom providers | Gateway-only (intentionally); authenticated `models`, interactive `/model` proven | Partial; local providers absent |
 | Reasoning/language | `--reasoning`, `/reasoning`, `--lang`, `/language` | Candidate launcher rejects public flags; native Qwen command equivalence unverified | **BREAKING/UNKNOWN** |
@@ -36,3 +37,10 @@
 - Updated Gateway PR #226: mock HTTP/ledger plus Kimi compatibility suite **20/20 PASS** after numeric-string output bound fix; latest full CI on the amended head must be rechecked.
 - Historical PAYG policy snapshot was generated **2026-10-14**, with Kimi price key `openrouter:kimi-k2.7-code-streamlake`, not authoritative evidence of current prices or margin.
 - Public package remains `@botconnector/bccli@0.4.17`. No npm publish, global installer change, production deployment or live wallet charge was performed during this audit.
+
+## 2026-10-30 isolated headless compatibility update
+
+- The candidate now accepts public-style `-p "task"` / `--print "task"` as an explicit **text-only** headless alias for `run "task"`, including `-m MODEL` argument ordering; it never enables Qwen YOLO or a provider bypass. Existing `run` and `chat` remain separate.
+- The candidate supports offline `-v` / `--version` using its own package metadata, **not** the public BCCLI version; `--help` is also offline. Public `--output-format json/stream-json`, `-r` session selector, export/import and other flags remain unimplemented and fail safely.
+- Public-only subcommands (`login`, `provider`, `mcp`, `connect`, etc.) are rejected **before** `-p` alias rewriting or key loading; `login -p` cannot become a chargeable model prompt. A Windows cross-platform path issue in CLI smoke tests was corrected using `fileURLToPath`.
+- Changes are isolated to the candidate PR; published `bccli` and user credentials remain untouched. Do not merge or publish without full parity/migration acceptance.
