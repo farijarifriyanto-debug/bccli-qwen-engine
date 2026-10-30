@@ -7,7 +7,7 @@ import test from 'node:test'
 import {childEnvironment,qwenArguments,resolveQwenEntrypoint} from '../core.mjs'
 import {startGatewayProxy} from '../proxy.mjs'
 const chunk=(model,delta,reason)=>'data: '+JSON.stringify({id:'mock',object:'chat.completion.chunk',created:1,model,choices:[{index:0,delta,finish_reason:reason}]})+'\n\n'
-test('Qwen default permissions preserve file without interactive approval', {timeout:35000},async()=>{
+test('explicit read-only fixture allowlist never permits edits without approval', {timeout:35000},async()=>{
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'bccli-approval-'))
   const target=path.join(root,'test.txt')
   const original=['one','two','three','four','status=awal','six','seven','eight','nine'].join('\n')+'\n'
@@ -29,6 +29,8 @@ test('Qwen default permissions preserve file without interactive approval', {tim
     const env=childEnvironment({...process.env,CI:'true',NO_COLOR:'1',QWEN_CODE_MAX_OUTPUT_TOKENS:'4096'},proxy.token,'ling-3.0-flash',{endpoint:proxy.baseUrl,home:path.join(root,'home')})
     env.QWEN_CODE_SYSTEM_SETTINGS_PATH=path.join(root,'system.json')
     const args=[resolveQwenEntrypoint(),...qwenArguments('ling-3.0-flash','Read and then edit test.txt; request permission.',proxy.baseUrl)]
+    // Explicitly authorize only the fake fixture read in headless CI; edits still need approval.
+    args.splice(args.indexOf('--approval-mode'),0,'--allowed-tools','read_file')
     const result=await new Promise((resolve,reject)=>{
       const child=spawn(process.execPath,args,{cwd:root,env,stdio:['ignore','pipe','pipe']})
       let stdout='',stderr=''
