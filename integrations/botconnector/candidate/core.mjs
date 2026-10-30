@@ -55,6 +55,10 @@ export function parseArgs(argv) {
   if (args.length && PUBLIC_ONLY_COMMANDS.has(args[0])) {
     throw Error('Command "' + args[0] + '" is available only in public BCCLI 0.4.17, not this isolated candidate. No AI request was sent.')
   }
+  // Qwen handles both -c and -r natively. Never combine the two session modes.
+  if (args.some(a => a === '-c' || a === '--continue') && args.some(a => a === '-r' || a === '--resume')) {
+    throw Error('Use either -c or -r, not both. No AI request was sent.')
+  }
   // The public -c/--continue resumes the last *current-project* session.
   // Candidate Qwen 'resume' already implements that behavior in isolation.
   const continueFlags = args.filter(a => a === '-c' || a === '--continue')
@@ -67,7 +71,7 @@ export function parseArgs(argv) {
     args.unshift('resume')
   }
   // Keep public BCCLI's common noninteractive invocation as a safe alias.
-  // Do not imply parity with public JSON/stream-json or -r session picking.
+  // Do not imply parity with public JSON/stream-json.
   const printIndexes = args.flatMap((arg, i) => arg === '-p' || arg === '--print' ? [i] : [])
   if (printIndexes.length > 1) throw Error('Specify -p / --print only once.')
   if (printIndexes.length === 1) {
@@ -78,10 +82,23 @@ export function parseArgs(argv) {
     if (args[0] !== 'run') args.unshift('run')
   }
   const command = ALLOWED.has(args[0]) ? args.shift() : 'chat'
-  let model, mcpConfig, provider, json = false
+  let model, mcpConfig, provider, json = false, resumeSession
   const prompt = []
   while (args.length) {
     const arg = args.shift()
+    if (arg === '-r' || arg === '--resume') {
+      if (command !== 'chat' || resumeSession !== undefined) throw Error('Use -r [SESSION_UUID] only once for interactive chat.')
+      const next = args[0]
+      if (next && !next.startsWith('-')) {
+        if (!/^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(next)) {
+          throw Error('Session ID must be a UUID. No AI request was sent.')
+        }
+        resumeSession = args.shift()
+      } else {
+        resumeSession = null // Native Qwen --resume with no ID opens its own session picker.
+      }
+      continue
+    }
     if (arg === '--model' || arg === '-m') {
       if (model !== undefined || !args.length) throw Error('Specify --model exactly once with an ID.')
       model = args.shift()
@@ -104,8 +121,9 @@ export function parseArgs(argv) {
   if (command === 'provider' && (model || mcpConfig || provider || json)) throw Error('Use: provider list | add ID | use ID | remove ID.')
   if (command === 'auth' && (model || mcpConfig || json || prompt.join(' ') !== 'status')) throw Error('Use: auth status (offline and read-only).')
   if (command === 'models' && (model || mcpConfig || prompt.length)) throw Error('Use: models [--json].')
+  if (resumeSession !== undefined && prompt.length) throw Error('Session picker cannot be combined with a prompt.')
   if (command === 'run' && !prompt.length) throw Error('Use: run --model MODEL "prompt".')
-  return { command, model, json, prompt: prompt.join(' '), ...(mcpConfig ? { mcpConfig } : {}), ...(provider ? { provider } : {}) }
+  return { command, model, json, prompt: prompt.join(' '), ...(mcpConfig ? { mcpConfig } : {}), ...(provider ? { provider } : {}), ...(resumeSession !== undefined ? { resumeSession } : {}) }
 }
 
 export async function discoverModels({ key, fetchImpl = fetch, endpoint = GATEWAY }) {
@@ -143,7 +161,8 @@ export function selectModel(models, value) {
   return value
 }
 
-export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false } = {}) {
+export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false, resumeSession } = {}) {
+  if (continueSession && resumeSession !== undefined) throw Error('Cannot combine native Qwen --continue with --resume.')
   // --bare is security critical: project settings may otherwise override
   // the provider baseUrl, forwarding an API key to an attacker-controlled endpoint.
   const args = [
@@ -160,6 +179,7 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, co
     'Client app: BCCLI. The active AI model can change in-session; use the current request runtime metadata, not the initial launch model. Do not treat the client app as the model or provider identity.')
   if (mcpConfig) args.push('--mcp-config', mcpConfig)
   if (continueSession) args.push('--continue')
+  if (resumeSession !== undefined) args.push('--resume', ...(resumeSession === null ? [] : [resumeSession]))
   if (prompt) args.push(prompt)
   return args
 }
@@ -220,12 +240,12 @@ export function resolveQwenEntrypoint() {
   return join(dirname(require.resolve('@qwen-code/qwen-code/package.json')), 'cli-entry.js')
 }
 
-export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
+export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, resumeSession, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
   // The real API key never enters Qwen, its tools, or any MCP child process.
   // Only this launcher retains it while the ephemeral proxy is running.
   const proxy = await proxyFactory({ key, endpoint: upstream })
   try {
-    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession })]
+    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, resumeSession })]
     const child = spawnImpl(process.execPath, args, {
       cwd: process.cwd(), env: childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl, providerId }),
       stdio: 'inherit', windowsHide: false, shell: false,
