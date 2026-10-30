@@ -47,5 +47,3 @@ test('Qwen default permissions preserve file without interactive approval', {tim
     assert.ok(turns.length>=3,'edit rejection must feed back to model')
   }finally{await proxy.close();fs.rmSync(root,{recursive:true,force:true})}
 })
-
-[executed on device: home (4d540514-2dca-4de3-9149-de18305fad04)]
