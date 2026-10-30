@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { homedir } from 'node:os'
 import { BCCLI_MODEL_COMMAND } from './model-command.mjs'
 import { BCCLI_PROVIDER_COMMAND } from './provider-command.mjs'
@@ -32,7 +33,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-B3ZFUGTC.js': 'f3f57aafbaeab56ca58f5d3173751d30e5fef815aeaf8dc9b46e6ea9e85eb528',
   'chunks/chunk-GGVWG4SI.js': '945c7f4e9b3697003c165b7bc5d007c9b87140d1fad7be084d7b253d8d2b476c',
 })
-const BRAND_REVISION = 'bccli-new-20261031-safe-core-tools-v13'
+const BRAND_REVISION = 'bccli-new-20261031-safe-core-tools-v14-atomic-patch'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -353,13 +354,13 @@ export function patchUiChunk(file, text) {
     if (result.includes('var DEFAULT_BARE_CORE_TOOLS=')) {
       result = replaceOnce(result,
       'var DEFAULT_BARE_CORE_TOOLS=[ToolNames.READ_FILE,ToolNames.EDIT,ToolNames.NOTEBOOK_EDIT,ToolNames.SHELL];',
-      'var DEFAULT_BARE_CORE_TOOLS=[ToolNames.READ_FILE,ToolNames.EDIT,ToolNames.NOTEBOOK_EDIT,ToolNames.SHELL,ToolNames.WRITE_FILE,ToolNames.GLOB,ToolNames.GREP];',
+      'var DEFAULT_BARE_CORE_TOOLS=[ToolNames.READ_FILE,ToolNames.EDIT,ToolNames.NOTEBOOK_EDIT,ToolNames.SHELL,ToolNames.WRITE_FILE,ToolNames.GLOB,ToolNames.GREP,"apply_patch"];',
       'enable safe built-in file create/find/grep under isolated bare mode')
     // Bare mode has a separate registry branch; updating the core allowlist
     // alone is insufficient. Register the already-vendored implementations.
     result = replaceOnce(result,
       'await registerLazy(ToolNames.SHELL,async()=>{const{ShellTool:ShellTool2}=await import("./shell-MESMTEQS.js");return new ShellTool2(this)});await registerGoalWorkerTools();await registerStructuredOutputIfRequested();',
-      'await registerLazy(ToolNames.SHELL,async()=>{const{ShellTool:ShellTool2}=await import("./shell-MESMTEQS.js");return new ShellTool2(this)});await registerLazy(ToolNames.WRITE_FILE,async()=>{const{WriteFileTool}=await import("./write-file-2A6M6WGQ.js");return new WriteFileTool(this)});await registerLazy(ToolNames.GLOB,async()=>{const{GlobTool}=await import("./glob-YYAAZG3O.js");return new GlobTool(this)});await registerLazy(ToolNames.GREP,async()=>{const{GrepTool}=await import("./grep-ZPVNGCCV.js");return new GrepTool(this)});await registerGoalWorkerTools();await registerStructuredOutputIfRequested();',
+      'await registerLazy(ToolNames.SHELL,async()=>{const{ShellTool:ShellTool2}=await import("./shell-MESMTEQS.js");return new ShellTool2(this)});await registerLazy(ToolNames.WRITE_FILE,async()=>{const{WriteFileTool}=await import("./write-file-2A6M6WGQ.js");return new WriteFileTool(this)});await registerLazy(ToolNames.GLOB,async()=>{const{GlobTool}=await import("./glob-YYAAZG3O.js");return new GlobTool(this)});await registerLazy(ToolNames.GREP,async()=>{const{GrepTool}=await import("./grep-ZPVNGCCV.js");return new GrepTool(this)});await registerLazy("apply_patch",async()=>{const{ApplyPatchTool}=await import("./bccli-apply-patch-tool.mjs");return new ApplyPatchTool(this)});await registerGoalWorkerTools();await registerStructuredOutputIfRequested();',
       'register missing bare-mode write_file glob and grep_search tool instances')
     }
     return renameProductLanguage(replaceExactly(result,
@@ -452,7 +453,12 @@ export function prepareBrandedQwen(entrypoint, { cacheRoot } = {}) {
   // Keep the copy within the same npm dependency tree so Node resolves native
   // and bundled imports exactly as the installed upstream runtime does.
   cacheRoot ??= join(homedir(), '.bccli-preview', 'branded-engines')
-  const patched = assertSource(packageDir)
+  const sourceDir = dirname(fileURLToPath(import.meta.url))
+  const patched = {
+    ...assertSource(packageDir),
+    'chunks/bccli-atomic-patch.mjs': readFileSync(join(sourceDir, 'atomic-patch.mjs'), 'utf8'),
+    'chunks/bccli-apply-patch-tool.mjs': readFileSync(join(sourceDir, 'apply-patch-tool.mjs'), 'utf8'),
+  }
   const outputHashes = Object.fromEntries(Object.entries(patched).map(([file, value]) => [file, digest(value)]))
   const manifest = { revision: BRAND_REVISION, version: VERSION, sourceHashes: SOURCE_HASHES, outputHashes }
   const target = join(cacheRoot, VERSION + '-' + digest(JSON.stringify(manifest)).slice(0,12))

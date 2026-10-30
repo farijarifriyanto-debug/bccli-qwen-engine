@@ -15,7 +15,7 @@ function agentReply(model, name, args) {
 }
 const finalReply=(model,text)=>sse(model,{role:'assistant',content:text},null)+sse(model,{},'stop')+'data: [DONE]\n\n'
 
-async function runFixture({ fixture, task, steps }) {
+async function runFixture({ fixture, task, steps, approvalMode = 'default' }) {
  const workspace=mkdtempSync(path.join(os.tmpdir(),'bccli-p0-tool-'))
  const home=path.join(workspace,'isolated-home')
  const seen=[]
@@ -35,7 +35,10 @@ async function runFixture({ fixture, task, steps }) {
   const entry=prepareBrandedQwen(resolveQwenEntrypoint())
   const args=[entry,...qwenArguments('ling-3.0-flash',task,proxy.baseUrl,{projectDir:workspace})]
   assert.ok(args.includes('--bare'))
-  assert.ok(args.includes('default'))
+  const approvalIndex = args.indexOf('--approval-mode')
+  assert.notEqual(approvalIndex, -1)
+  args[approvalIndex + 1] = approvalMode
+  assert.equal(args[approvalIndex + 1], approvalMode)
   const result=await new Promise((resolve,reject)=>{
    const child=spawn(process.execPath,args,{cwd:workspace,env,stdio:['ignore','pipe','pipe']})
    let stdout='',stderr=''
@@ -89,5 +92,69 @@ test('headless default approval denies unauthorized write_file; existing user fi
   const response=JSON.stringify(data.seen.slice(1).flatMap(v=>v.messages?.filter(m=>m.role==='tool').map(m=>m.content)||[]))
   assert.ok(response.length>0,'engine must provide tool denial feedback')
   assert.doesNotMatch(readFileSync(path.join(data.workspace,'account.txt'),'utf8'),/NOT_AUTHORIZED/)
+ }finally{rmSync(data.workspace,{recursive:true,force:true})}
+})
+
+
+test('apply_patch is advertised in --bare and headless approval cannot overwrite user code', {timeout:55000},async()=>{
+ const data=await runFixture({
+  fixture:root=>writeFileSync(path.join(root,'source.py'),'name = "original"\n'),
+  task:'Use apply_patch to change the existing Python file, pending approval.',
+  steps:[
+   {type:'tool',name:'apply_patch',args:root=>({file_path:path.join(root,'source.py'),replacements:[{old_text:'name = "original"',new_text:'name = "changed"'}]})},
+   {type:'final',text:'PATCH_APPROVAL_CHECKED'},
+  ],
+ })
+ try{
+  const toolNames=data.seen[0].tools?.map(x=>x.function?.name)||[]
+  assert.ok(toolNames.includes('apply_patch'),'model must see apply_patch, not shell workaround')
+  assert.equal(readFileSync(path.join(data.workspace,'source.py'),'utf8'),'name = "original"\n','unattended call must not write')
+  assert.equal(data.result.code,0,data.result.stderr)
+  assert.match(data.result.stdout,/PATCH_APPROVAL_CHECKED/)
+  assert.ok(data.seen.length>=2,'denial or error must be returned to the model')
+ } finally {rmSync(data.workspace,{recursive:true,force:true})}
+})
+
+
+test('isolated fixture with explicit auto-edit permission executes an actual multi-hunk apply_patch', {timeout:55000},async()=>{
+ const data=await runFixture({
+  fixture:root=>writeFileSync(path.join(root,'calculation.py'),'amount = 1\nprint(amount)\n'),
+  task:'Read calculation.py, then update it with apply_patch.',
+  approvalMode:'auto-edit',
+  steps:[
+   {type:'tool',name:'read_file',args:root=>({file_path:path.join(root,'calculation.py')})},
+   {type:'tool',name:'apply_patch',args:root=>({file_path:path.join(root,'calculation.py'),replacements:[
+    {old_text:'amount = 1',new_text:'amount = 2'},
+    {old_text:'print(amount)',new_text:'print(amount * 2)'},
+   ]})},
+   {type:'final',text:'PATCH_WITH_EXPLICIT_AUTO_EDIT_COMPLETE'},
+  ],
+ })
+ try{
+  assert.equal(data.result.code,0,data.result.stderr)
+  assert.match(data.result.stdout,/PATCH_WITH_EXPLICIT_AUTO_EDIT_COMPLETE/)
+  assert.equal(readFileSync(path.join(data.workspace,'calculation.py'),'utf8'),'amount = 2\nprint(amount * 2)\n')
+  const responses=JSON.stringify(data.seen.slice(1).flatMap(v=>v.messages?.filter(m=>m.role==='tool').map(m=>m.content)||[]))
+  assert.match(responses,/\\"ok\\":true/,'tool must report actual successful commit')
+ }finally{rmSync(data.workspace,{recursive:true,force:true})}
+})
+
+
+test('auto-edit does not allow apply_patch before the agent read_file', {timeout:55000},async()=>{
+ const data=await runFixture({
+  fixture:root=>writeFileSync(path.join(root,'untouched.py'),'PINNED = True\n'),
+  task:'Attempt patch without reading the file first.',
+  approvalMode:'auto-edit',
+  steps:[
+   {type:'tool',name:'apply_patch',args:root=>({file_path:path.join(root,'untouched.py'),replacements:[{old_text:'PINNED = True',new_text:'PINNED = False'}]})},
+   {type:'final',text:'PRIOR_READ_DENIAL_TESTED'},
+  ],
+ })
+ try{
+  assert.equal(data.result.code,0,data.result.stderr)
+  assert.equal(readFileSync(path.join(data.workspace,'untouched.py'),'utf8'),'PINNED = True\n')
+  const responses=JSON.stringify(data.seen.slice(1).flatMap(v=>v.messages?.filter(m=>m.role==='tool').map(m=>m.content)||[]))
+  assert.ok(responses.length>2,'agent receives tool denial')
+  assert.doesNotMatch(responses,/\\\\\"ok\\\\\":true/)
  }finally{rmSync(data.workspace,{recursive:true,force:true})}
 })
