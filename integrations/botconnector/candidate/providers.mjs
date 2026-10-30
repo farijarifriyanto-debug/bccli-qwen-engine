@@ -54,7 +54,7 @@ function dpapi(script, input, { platform = process.platform, runner = spawnSync 
 }
 export function saveProviderKey(id, key, { root = providerRoot(), platform = process.platform, runner = spawnSync } = {}) {
   providerDefinition(id)
-  if (id === 'botconnector') throw Error('Use existing bccli login for BotConnector credentials.')
+  if (id === 'botconnector') throw Error('Use bccli-legacy login bc-cloud or BOTCONNECTOR_API_KEY for BotConnector credentials.')
   if (typeof key !== 'string' || !key.trim() || key.length > 8192 || /[\r\n]/.test(key)) throw Error('API key cannot be empty, multiline, or oversized.')
   if (platform !== 'win32') throw Error('On non-Windows systems, use the provider API key environment variable.')
   ownerDirectory(root, { create: true })
@@ -110,7 +110,7 @@ export function useProvider(id, { env = process.env, root = providerRoot({env}) 
 }
 export function removeProvider(id, { env = process.env, root = providerRoot({env}) } = {}) {
   providerDefinition(id)
-  if (id === 'botconnector') throw Error('BotConnector credentials are managed by existing public bccli.')
+  if (id === 'botconnector') throw Error('BotConnector credentials are managed by bccli-legacy or BOTCONNECTOR_API_KEY.')
   if (!ownerDirectory(root)) return
   const path = keyPath(root, id)
   if (existsSync(path)) {
