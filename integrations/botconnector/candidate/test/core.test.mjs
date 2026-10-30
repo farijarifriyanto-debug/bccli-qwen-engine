@@ -132,14 +132,14 @@ test('child strips inherited competing provider keys', () => {
     PATH: 'test-path', QWEN_OAUTH: '1', ANTHROPIC_API_KEY: 'old-secret',
     OPENAI_BASE_URL: 'https://evil.example/v1', OPENAI_API_KEY: 'wrong-key',
     BOTCONNECTOR_API_KEY: 'should-not-inherit',
-  }, 'test-secret', 'model-1', { home: '/tmp/bccli-qwen-candidate' })
+  }, 'test-secret', 'model-1', { home: '/tmp/bccli-preview' })
   assert.equal(env.PATH, 'test-path')
   assert.equal(env.QWEN_OAUTH, undefined)
   assert.equal(env.BOTCONNECTOR_API_KEY, undefined)
   assert.equal(env.ANTHROPIC_API_KEY, undefined)
   assert.equal(env.OPENAI_API_KEY, 'test-secret')
   assert.equal(env.OPENAI_BASE_URL, GATEWAY)
-  assert.equal(env.QWEN_HOME, '/tmp/bccli-qwen-candidate')
+  assert.equal(env.QWEN_HOME, '/tmp/bccli-preview')
 })
 
 test('launcher spawns upstream node script directly without shell', async () => {

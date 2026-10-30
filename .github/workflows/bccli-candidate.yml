@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - "botconnector/compat-poc-20261029"
+      - "release/bccli-preview-v0.1.0-rc.1"
     paths:
       - "integrations/botconnector/**"
       - ".github/workflows/bccli-candidate.yml"

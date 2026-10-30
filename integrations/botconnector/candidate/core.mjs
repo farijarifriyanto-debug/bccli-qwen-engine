@@ -171,7 +171,7 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home } 
   env.OPENAI_BASE_URL = endpoint
   env.OPENAI_MODEL = model
   env.QWEN_MODEL = model
-  env.QWEN_HOME = home ?? join(homedir(), '.bccli-qwen-candidate')
+  env.QWEN_HOME = home ?? join(homedir(), '.bccli-preview')
   env.CLI_TITLE = 'BCCLI - ' + process.cwd().split(/[\\/]/).filter(Boolean).at(-1)
   env.QWEN_CODE_SKIP_UPDATE_CHECK_ONCE = 'true' // Never query or install upstream Qwen releases.
   return env
@@ -180,7 +180,7 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home } 
 // Explicit MCP servers run local commands on startup, so they must originate
 // from a config file the user deliberately placed outside any cloned project.
 // There is no automatic project/user MCP discovery when Qwen runs --bare.
-export function resolveTrustedMcpConfig(input, { home = join(homedir(), '.bccli-qwen-candidate') } = {}) {
+export function resolveTrustedMcpConfig(input, { home = join(homedir(), '.bccli-preview') } = {}) {
   if (!input) return undefined
   if (!isAbsolute(input)) throw Error('MCP config must use an absolute path.')
   let realHome, file, stats
