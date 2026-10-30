@@ -88,15 +88,25 @@ export function boundChatOutputTokens(payload) {
   const modern = payload.max_completion_tokens
   const valid = (value) => Number.isInteger(value) && value > 0
 
-  // Real BotConnector Gateway can infer Kimi K2.7 Code when the caller uses
-  // max_completion_tokens, but the same route rejects max_tokens with HTTP
-  // 400 "The model has no bounded output limit." Proven with 32-token
-  // no-tools live requests on 2026-10-30. This compatibility translation is
-  // intentionally exact-model only, not a global rewrite for other providers.
-  if (payload.model === 'kimi-k2.7-code' && valid(legacy)) {
-    const requested = valid(modern) ? Math.min(legacy, modern) : legacy
-    const { max_tokens: _ignored, ...rest } = payload
-    return { ...rest, max_completion_tokens: Math.min(requested, DEFAULT_OUTPUT_TOKEN_CEILING) }
+  // Real Gateway's exact Kimi route rejects legacy max_tokens. Keep parity
+  // with PAYG validation for positive decimal numeric strings, without
+  // changing the output-ceiling policy for any other model.
+  if (payload.model === 'kimi-k2.7-code') {
+    const parsed = (value) => {
+      if (typeof value !== 'number' && !(typeof value === 'string' && /^[0-9]+$/.test(value))) return null
+      const n = Number(value)
+      return Number.isSafeInteger(n) && n > 0 ? n : null
+    }
+    const legacyValue = parsed(legacy)
+    const modernValue = parsed(modern)
+    if (legacyValue != null) {
+      const requested = modernValue != null ? Math.min(legacyValue, modernValue) : legacyValue
+      const { max_tokens: _ignored, ...rest } = payload
+      return { ...rest, max_completion_tokens: Math.min(requested, DEFAULT_OUTPUT_TOKEN_CEILING) }
+    }
+    if (modernValue != null && (typeof modern !== 'number' || modernValue > DEFAULT_OUTPUT_TOKEN_CEILING)) {
+      return { ...payload, max_completion_tokens: Math.min(modernValue, DEFAULT_OUTPUT_TOKEN_CEILING) }
+    }
   }
   if (valid(legacy) && legacy > DEFAULT_OUTPUT_TOKEN_CEILING) {
     return { ...payload, max_tokens: DEFAULT_OUTPUT_TOKEN_CEILING }
