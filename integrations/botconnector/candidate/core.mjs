@@ -23,12 +23,14 @@ export function assertCandidateRuntimeSupported({ platform = process.platform, n
   }
 }
 const MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/
-const ALLOWED = new Set(['models', 'run', 'chat', 'resume', 'auth', 'provider'])
+// Native upstream sessions use UUIDs; never accept a path or arbitrary user input.
+const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const ALLOWED = new Set(['models', 'run', 'chat', 'resume', 'auth', 'provider', 'acp'])
 // Public BCCLI commands are not supported by this isolated candidate. Do
 // not accidentally treat them as AI prompts, which could spend user credits.
 const PUBLIC_ONLY_COMMANDS = new Set([
   'login', 'logout', 'mcp', 'connect', 'disconnect',
-  'integrations', 'update', 'serve', 'acp', 'plugins', 'gh-bot',
+  'integrations', 'update', 'serve', 'plugins', 'gh-bot',
   'completion', 'stats', 'export', 'import', 'pr',
 ])
 
@@ -78,7 +80,7 @@ export function parseArgs(argv) {
     if (args[0] !== 'run') args.unshift('run')
   }
   const command = ALLOWED.has(args[0]) ? args.shift() : 'chat'
-  let model, mcpConfig, provider, json = false
+  let model, mcpConfig, provider, json = false, resumeSession = false, sessionId
   const prompt = []
   while (args.length) {
     const arg = args.shift()
@@ -97,6 +99,17 @@ export function parseArgs(argv) {
       mcpConfig = args.shift()
       continue
     }
+    if (arg === '-r' || arg === '--resume') {
+      if (resumeSession) throw Error('Specify -r / --resume only once.')
+      if (command !== 'chat') throw Error('-r / --resume requires interactive chat mode.')
+      resumeSession = true
+      if (args.length && !args[0].startsWith('-')) {
+        const candidate = args.shift()
+        if (!SESSION_ID.test(candidate)) throw Error('Session ID must be a UUID; use -r alone for the session picker.')
+        sessionId = candidate
+      }
+      continue
+    }
     if (arg === '--json' && command === 'models') { json = true; continue }
     if (arg.startsWith('-')) throw Error('Unsupported option. POC intentionally blocks passthrough flags.')
     prompt.push(arg)
@@ -105,7 +118,9 @@ export function parseArgs(argv) {
   if (command === 'auth' && (model || mcpConfig || json || prompt.join(' ') !== 'status')) throw Error('Use: auth status (offline and read-only).')
   if (command === 'models' && (model || mcpConfig || prompt.length)) throw Error('Use: models [--json].')
   if (command === 'run' && !prompt.length) throw Error('Use: run --model MODEL "prompt".')
-  return { command, model, json, prompt: prompt.join(' '), ...(mcpConfig ? { mcpConfig } : {}), ...(provider ? { provider } : {}) }
+  if (resumeSession && prompt.length) throw Error('-r / --resume cannot be combined with a prompt; use -r to select an existing session.')
+  if (command === 'acp' && (prompt.length || json)) throw Error('ACP requires protocol input on stdin; no positional prompt or --json is accepted.')
+  return { command, model, json, prompt: prompt.join(' '), ...(mcpConfig ? { mcpConfig } : {}), ...(provider ? { provider } : {}), ...(resumeSession ? { resumeSession } : {}), ...(sessionId ? { sessionId } : {}) }
 }
 
 export async function discoverModels({ key, fetchImpl = fetch, endpoint = GATEWAY }) {
@@ -143,7 +158,7 @@ export function selectModel(models, value) {
   return value
 }
 
-export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false } = {}) {
+export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false, resumeSession = false, sessionId, acp = false } = {}) {
   // --bare is security critical: project settings may otherwise override
   // the provider baseUrl, forwarding an API key to an attacker-controlled endpoint.
   const args = [
@@ -159,7 +174,12 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, co
   args.push('--append-system-prompt',
     'Client app: BCCLI. The active AI model can change in-session; use the current request runtime metadata, not the initial launch model. Do not treat the client app as the model or provider identity.')
   if (mcpConfig) args.push('--mcp-config', mcpConfig)
+  if (continueSession && resumeSession) throw Error('Cannot combine --continue and --resume.')
+  if (sessionId && (!resumeSession || !SESSION_ID.test(sessionId))) throw Error('Invalid session resume ID.')
+  if (acp && (resumeSession || continueSession || prompt)) throw Error('ACP must start with protocol stdin; interactive resume and prompts are unsupported.')
   if (continueSession) args.push('--continue')
+  if (resumeSession) args.push('--resume', ...(sessionId ? [sessionId] : []))
+  if (acp) args.push('--acp')
   if (prompt) args.push(prompt)
   return args
 }
@@ -220,12 +240,12 @@ export function resolveQwenEntrypoint() {
   return join(dirname(require.resolve('@qwen-code/qwen-code/package.json')), 'cli-entry.js')
 }
 
-export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
+export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, resumeSession = false, sessionId, acp = false, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
   // The real API key never enters Qwen, its tools, or any MCP child process.
   // Only this launcher retains it while the ephemeral proxy is running.
   const proxy = await proxyFactory({ key, endpoint: upstream })
   try {
-    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession })]
+    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, resumeSession, sessionId, acp })]
     const child = spawnImpl(process.execPath, args, {
       cwd: process.cwd(), env: childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl, providerId }),
       stdio: 'inherit', windowsHide: false, shell: false,
