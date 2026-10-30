@@ -3,6 +3,7 @@
 // implementation bundled within the same distribution. Never reinterpret a
 // legacy subcommand as a chargeable AI prompt.
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const LEGACY_COMMANDS = new Set([
@@ -30,6 +31,7 @@ export function legacyCompatibilityMode(argv) {
 
 export async function runLegacyCli(argv, { spawnImpl = spawn, node = process.execPath, env = process.env, cwd = process.cwd() } = {}) {
   const entrypoint = fileURLToPath(new URL('./legacy/dist/cli.js', import.meta.url))
+  if (spawnImpl === spawn && !existsSync(entrypoint)) throw Error('Bundled BCCLI compatibility files are missing; reinstall the release package. No AI request was sent.')
   const child = spawnImpl(node, [entrypoint, ...argv], {
     cwd, env, stdio: 'inherit', shell: false, windowsHide: false,
   })
