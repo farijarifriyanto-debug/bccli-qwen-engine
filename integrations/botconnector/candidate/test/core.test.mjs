@@ -22,7 +22,7 @@ test('public -p headless text alias preserves candidate safety and explicit mode
   assert.throws(() => parseArgs(['-p','--print','prompt']), /only once/)
   assert.throws(() => parseArgs(['chat','-p','prompt']), /only supports a single headless run/)
   assert.throws(() => parseArgs(['models','-p','prompt']), /only supports a single headless run/)
-  assert.throws(() => parseArgs(['-p','--output-format','json','prompt']), /Unsupported option/)
+  assert.equal(parseArgs(['-p','--output-format','json','prompt']).outputFormat, 'json')
   assert.throws(() => parseArgs(['login','-p']), /No AI request was sent/)
 })
 
