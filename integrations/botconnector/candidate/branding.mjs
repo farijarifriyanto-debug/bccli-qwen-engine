@@ -3,7 +3,10 @@
 import { createHash } from 'node:crypto'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
+import { homedir } from 'node:os'
 import { BCCLI_MODEL_COMMAND } from './model-command.mjs'
+import { BCCLI_PROVIDER_COMMAND } from './provider-command.mjs'
+import { BCCLI_PROVIDER_DIALOG } from './provider-dialog.mjs'
 
 const VERSION = '0.26.3'
 const SOURCE_HASHES = Object.freeze({
@@ -13,12 +16,23 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-OV3EBH6J.js': '3b20ea65e93e6ee00625f9d86906c3d28c45529b4b4dbe72dc050bdae3904505',
   'chunks/chunk-W3YCOEIP.js': '02828393f6e477a7f36cecff876a6af2d36ece3eb838fceb096d9245eb7fc5f7',
   'chunks/chunk-7L4WTOM2.js': '4d8053c956cc7881b7f87ae2c0e96bf1adc942a37ac37de3d76eaeb9367041fc',
+  'chunks/chunk-Y6HHV4LC.js': '7ae347a288e5fe60ef37a66485527502db3dd7112207ea4b683ada0bda47952c',
   'chunks/chunk-QUFSNRKR.js': 'f52e1917c7956b02208b39982bbf7b45fb52c294418ebd93f7f2f0677c1aaa2d',
   'chunks/chunk-2PLSL3VQ.js': 'f475f043f1ab8314a64699ebb45e43026bb1a1fe65f1ac259f1898afb8a6c5d9',
   'chunks/chunk-ERV2ECV3.js': '7d2511a8317ee2c44edd2fd62b43966b9acfbfaac79175cd0cc9fb9ed42051c6',
   'chunks/server-SJNWHHV4.js': '42ceeddc69dda95fbaac276cbd94e99432892305d169d248e760c9d94aab6eaf',
+  'chunks/en-SBI6QJ2J.js': '85fb77f8a9c0fc864f53a55d8a819dfb6ddb98a0c78ef1eaa9af306b313aa6e8',
+  'locales/en.js': 'd42369efe23514787a74aa4fb3b63ad339b8ec29edf5973c6aeecd8649a21639',
+  'chunks/acpAgent-U6TCKYWP.js': '5a22dd6985c9666f85817ffd0565366b8af2b2771178ab883423a1b774688166',
+  'chunks/chunk-2MB4ZSKF.js': 'c442969e3866fe10380be412275f8646305a1ec8437524537189133f61f5eb7b',
+  'chunks/chunk-3TK35SQL.js': '63e04f9ae44be6712d75a71ad870fc3c987219fbdd4c3c63a085b264402e797d',
+  'chunks/chunk-44WSAMWG.js': 'a85e4033daea57302376e39e8323f50f17c65cb53cbdbddd7cd230ba88e19091',
+  'chunks/chunk-4BFQ7QQC.js': '082f99e2b58e97fb09a4c7b5ec905f690b46088f35dbaa0fc974c9f78e7f6b0f',
+  'chunks/chunk-55KTWTOV.js': '45516f9524545f18cdae2f1d72092026231007f8961cd2aed4ce3049b5b71c59',
+  'chunks/chunk-B3ZFUGTC.js': 'f3f57aafbaeab56ca58f5d3173751d30e5fef815aeaf8dc9b46e6ea9e85eb528',
+  'chunks/chunk-GGVWG4SI.js': '945c7f4e9b3697003c165b7bc5d007c9b87140d1fad7be084d7b253d8d2b476c',
 })
-const BRAND_REVISION = 'bccli-new-20261030-neutral-identity-v3'
+const BRAND_REVISION = 'bccli-new-20261031-safe-core-tools-v13'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -59,7 +73,7 @@ export function guardUpstreamProviderCommands(text) {
     {
       command: 'auth',
       detect: 'dialog:"auth"',
-      code: 'var authCommand={name:"auth",altNames:["connect","login","provider"],get description(){return "Choose provider, add API key and select a model in BCCLI"},kind:"built-in",supportedModes:["interactive"],action:__name((context)=>{if(context.executionMode && context.executionMode!=="interactive")return{type:"message",messageType:"error",content:"Provider switching requires an interactive terminal."};process.exit(51)},"action")};',
+      code: BCCLI_PROVIDER_COMMAND,
     },
     {
       command: 'model',
@@ -69,7 +83,7 @@ export function guardUpstreamProviderCommands(text) {
     {
       command: 'settings',
       detect: 'dialog:"settings"',
-      code: 'var settingsCommand={name:"settings",get description(){return "View safe BCCLI settings"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(context=>({type:"message",messageType:"info",content:"BCCLI | BotConnector Settings\\nGateway: https://api.botconnector.id/v1 (fixed)\\nModel: "+(context.services?.config?.getModel?.()||"unknown")+"\\nAuth: existing bccli-legacy login (bc-cloud) or BOTCONNECTOR_API_KEY override\\nPermissions: ask before file changes and shell commands\\nUse /model to switch AI, /auth for connection help, /permissions for tool approvals, /theme to change appearance. Upstream provider and project-settings editors are disabled."}),"action")};',
+      code: 'var settingsCommand={name:"settings",get description(){return "View safe BCCLI settings"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(context=>({type:"message",messageType:"info",content:"BCCLI | BotConnector Settings\\nGateway: https://api.botconnector.id/v1 (fixed)\\nModel: "+(context.services?.config?.getModel?.()||"unknown")+"\\nAuth: /provider add botconnector (masked Windows dialog), /provider remove botconnector; or BOTCONNECTOR_API_KEY override\\nPermissions: ask before file changes and shell commands\\nUse /model to switch AI, /auth for connection help, /permissions for tool approvals, /theme to change appearance. Upstream provider and project-settings editors are disabled."}),"action")};',
     },
     {
       command: 'about',
@@ -117,6 +131,30 @@ export function guardUpstreamProviderCommands(text) {
 // file formats such as QWEN.md, which are still used by the upstream engine.
 function renameProductLanguage(text) {
   const labels = [
+    ['List tasks across Qwen Code WebShell', 'List tasks across BCCLI agent sessions'],
+    ['Automatic backend Qwen Code text', 'Automatic background BCCLI text'],
+    ['Goal not restored: it was recorded by an earlier version of Qwen Code', 'Goal not restored: it was recorded by an earlier BCCLI runtime'],
+    ['Written by Qwen Code', 'Written by BCCLI'],
+    ['Please reinstall Qwen Code', 'Please reinstall BCCLI'],
+    ['Agent commands (forwarded to Qwen Code):', 'Agent commands (forwarded to BCCLI):'],
+    ['Qwen Code Agent update', 'BCCLI Agent update'],
+    ['Qwen Code Agent (', 'BCCLI Agent ('],
+    ['Qwen Code Agent', 'BCCLI Agent'],
+    ['Run Qwen Code as a local HTTP daemon', 'Run BCCLI as a local HTTP daemon'],
+    ['Join another Qwen Code as a runtime', 'Join another BCCLI session as a runtime'],
+    ['This is the Qwen Code. We are setting up the context for our chat.', 'This is a coding assistant. We are setting up the context for our chat.'],
+    ['Some features may not work perfectly with Qwen Code', 'Some features may not work perfectly with BCCLI'],
+
+    ['How is Qwen doing this session? (optional)', 'How is BCCLI doing this session? (optional)'],
+    ['Qwen Code is processing a request', 'BCCLI is processing a request'],
+    ['Qwen Code is streaming a model response', 'BCCLI is streaming a model response'],
+    ['Qwen Code keeps working', 'BCCLI keeps working'],
+    ['You can close this window and return to Qwen Code.', 'You can close this window and return to BCCLI.'],
+    ['In interactive Qwen Code sessions', 'In interactive BCCLI sessions'],
+    ['Generated with Qwen Code', 'Generated with BCCLI'],
+    ['restart Qwen Code', 'restart BCCLI'],
+    ['Qwen Code on a host with a microphone', 'BCCLI on a host with a microphone'],
+    ['How is Qwen doing this session?', 'How is BCCLI doing this session?'],
     ['To see changes, Qwen Code must be restarted.', 'To see changes, BCCLI must be restarted.'],
     ['To apply the trust changes, Qwen Code must be restarted.', 'To apply trust changes, restart BCCLI.'],
     ["Press 'r' to restart Qwen Code", "Press 'r' to restart BCCLI"],
@@ -164,6 +202,31 @@ function renameProductLanguage(text) {
 }
 
 export function patchUiChunk(file, text) {
+  if (file === 'chunks/chunk-Y6HHV4LC.js') {
+    // Keep both context formats available and prioritize the vendor-neutral
+    // AGENTS.md for all new sessions and /init. This controls file loading,
+    // not just the text shown in the terminal.
+    return replaceOnce(
+      text,
+      'var currentMemoryFilename=[DEFAULT_CONTEXT_FILENAME,AGENT_CONTEXT_FILENAME];',
+      'var currentMemoryFilename=[AGENT_CONTEXT_FILENAME,DEFAULT_CONTEXT_FILENAME];',
+      'AGENTS.md preferred context and backward-compatible QWEN.md fallback')
+  }
+  if ([
+    'chunks/acpAgent-U6TCKYWP.js',
+    'chunks/chunk-2MB4ZSKF.js',
+    'chunks/chunk-3TK35SQL.js',
+    'chunks/chunk-44WSAMWG.js',
+    'chunks/chunk-4BFQ7QQC.js',
+    'chunks/chunk-55KTWTOV.js',
+    'chunks/chunk-B3ZFUGTC.js',
+    'chunks/chunk-GGVWG4SI.js',
+  ].includes(file)) return renameProductLanguage(text)
+  if (file === 'chunks/en-SBI6QJ2J.js' || file === 'locales/en.js') {
+    const expected = text.split('How is Qwen doing this session? (optional)').length - 1
+    if (expected !== 2) throw Error('BCCLI English feedback translation locator changed.')
+    return renameProductLanguage(text)
+  }
   if (file === 'chunks/server-SJNWHHV4.js') {
     // An additional bundled server/agent instruction uses an upstream product
     // identity. Neutralize only that exact clause; never invent a model name.
@@ -202,6 +265,36 @@ export function patchUiChunk(file, text) {
       'qwen --resume ${sessionId}',
       'bccli -c',
       'Ink session-exit command')
+    // The upstream feedback popup is not BotConnector's product. It must
+    // not be shown or relabeled as a BotConnector-owned feedback service.
+    if (result.includes('var FeedbackDialog=__name')) {
+      result = replaceOnce(result,
+        'var FEEDBACK_DIALOG_KEYS=["1","2","3","0"];var FeedbackDialog=',
+        'var FEEDBACK_DIALOG_KEYS=["1","2","3","0"];const BCCLI_DISABLE_UPSTREAM_FEEDBACK=true;var FeedbackDialog=',
+        'upstream feedback suppression declaration')
+      result = replaceOnce(result,
+        'settings.merged.ui?.enableUserFeedback===false||!lastMessageIsAIResponse(history)',
+        'settings.merged.ui?.enableUserFeedback===false||BCCLI_DISABLE_UPSTREAM_FEEDBACK||!lastMessageIsAIResponse(history)',
+        'upstream feedback suppression guard')
+    }
+    // The Ink viewport enters the alternate screen and captures scroll/drag
+    // events. On Windows, prefer real terminal scrollback and native selection.
+    // Users may opt back into the in-app viewport with BCCLI_ENABLE_APP_MOUSE=1.
+    result = replaceExactly(result,
+      'settings.merged.ui?.useTerminalBuffer',
+      'process.platform==="win32"&&process.env.BCCLI_ENABLE_APP_MOUSE!=="1"?false:settings.merged.ui?.useTerminalBuffer',
+      3,
+      'Ink native scrollback and mouse selection on Windows')
+    // Reuse the existing Ink authentication dialog slot for BCCLI's own
+    // authenticated provider picker. The upstream AuthDialog would show the
+    // wrong provider configuration and cannot switch BCCLI proxy routes.
+    const start = result.indexOf('function AuthDialog(){')
+    const ending = '__name(AuthDialog,"AuthDialog");'
+    const end = result.indexOf(ending, start)
+    if (start >= 0 && (end < 0 || result.indexOf(ending, end + ending.length) >= 0)) {
+      throw Error('BCCLI arrow-key provider dialog locator changed upstream.')
+    }
+    if (start >= 0) result = result.slice(0,start) + BCCLI_PROVIDER_DIALOG + result.slice(end)
     return renameProductLanguage(result)
   }
   if (file === 'chunks/start-opentui-ui-Q34XCEMN.js') {
@@ -225,6 +318,22 @@ export function patchUiChunk(file, text) {
       'qwen --resume ${sessionId}',
       'bccli -c',
       'OpenTUI transcript resume command')
+    // Windows Terminal should own mouse selection and scrollbar navigation.
+    // OpenTUI's alternate screen + mouse reporting otherwise prevents the
+    // familiar drag-up-to-select text behavior. Other platforms stay unchanged.
+    // Power users can set BCCLI_ENABLE_APP_MOUSE=1 for legacy in-app mouse.
+    result = replaceOnce(
+      result,
+      'useMouse:settings.merged.ui?.mouseTracking!==false',
+      'useMouse:process.platform==="win32"?process.env.BCCLI_ENABLE_APP_MOUSE==="1":settings.merged.ui?.mouseTracking!==false,screenMode:process.platform==="win32"&&process.env.BCCLI_ENABLE_APP_MOUSE!=="1"?"main-screen":"alternate-screen"',
+      'OpenTUI Windows native mouse selection and screen buffer',
+    )
+    result = replaceOnce(
+      result,
+      'mouseTracking:settings.merged.ui?.mouseTracking!==false',
+      'mouseTracking:process.platform==="win32"?process.env.BCCLI_ENABLE_APP_MOUSE==="1":settings.merged.ui?.mouseTracking!==false',
+      'OpenTUI Windows transcript mouse selection',
+    )
     return renameProductLanguage(result)
   }
   if (file === 'chunks/chunk-QUFSNRKR.js') {
@@ -240,10 +349,23 @@ export function patchUiChunk(file, text) {
       'headless approval warning')
   }
   if (file === 'chunks/chunk-ERV2ECV3.js') {
-    return replaceExactly(text,
+    let result = text
+    if (result.includes('var DEFAULT_BARE_CORE_TOOLS=')) {
+      result = replaceOnce(result,
+      'var DEFAULT_BARE_CORE_TOOLS=[ToolNames.READ_FILE,ToolNames.EDIT,ToolNames.NOTEBOOK_EDIT,ToolNames.SHELL];',
+      'var DEFAULT_BARE_CORE_TOOLS=[ToolNames.READ_FILE,ToolNames.EDIT,ToolNames.NOTEBOOK_EDIT,ToolNames.SHELL,ToolNames.WRITE_FILE,ToolNames.GLOB,ToolNames.GREP];',
+      'enable safe built-in file create/find/grep under isolated bare mode')
+    // Bare mode has a separate registry branch; updating the core allowlist
+    // alone is insufficient. Register the already-vendored implementations.
+    result = replaceOnce(result,
+      'await registerLazy(ToolNames.SHELL,async()=>{const{ShellTool:ShellTool2}=await import("./shell-MESMTEQS.js");return new ShellTool2(this)});await registerGoalWorkerTools();await registerStructuredOutputIfRequested();',
+      'await registerLazy(ToolNames.SHELL,async()=>{const{ShellTool:ShellTool2}=await import("./shell-MESMTEQS.js");return new ShellTool2(this)});await registerLazy(ToolNames.WRITE_FILE,async()=>{const{WriteFileTool}=await import("./write-file-2A6M6WGQ.js");return new WriteFileTool(this)});await registerLazy(ToolNames.GLOB,async()=>{const{GlobTool}=await import("./glob-YYAAZG3O.js");return new GlobTool(this)});await registerLazy(ToolNames.GREP,async()=>{const{GrepTool}=await import("./grep-ZPVNGCCV.js");return new GrepTool(this)});await registerGoalWorkerTools();await registerStructuredOutputIfRequested();',
+      'register missing bare-mode write_file glob and grep_search tool instances')
+    }
+    return renameProductLanguage(replaceExactly(result,
       'Qwen Code requires permission to use ',
       'BCCLI requires permission to use ', 4,
-      'user-facing tool permission errors')
+      'user-facing tool permission errors'))
   }
   if (file === 'chunks/chunk-OV3EBH6J.js') {
     return replaceOnce(text,
@@ -272,6 +394,17 @@ export function patchUiChunk(file, text) {
       'You are an AI coding assistant operating in a terminal.',
       'neutral project initialization prompt')
     result = guardUpstreamProviderCommands(result)
+    // Test snippets may omit /init; full pinned engine has it.
+    if (result.includes('var initCommand=')) {
+      result = replaceOnce(result,
+        'Analyzes the project and creates a tailored QWEN.md file.',
+        'Analyzes the project and creates an AGENTS.md instruction file.',
+        '/init project instruction file description')
+      result = replaceOnce(result,
+        'Successfully added QWEN.md files from the following directories if there are:',
+        'Successfully loaded project instruction files from the following directories:',
+        'instruction file refresh message')
+    }
     result = replaceOnce(result,
       'get description(){return t("for help on Qwen Code")}',
       'get description(){return t("BCCLI help and keyboard shortcuts")}',
@@ -318,7 +451,7 @@ export function prepareBrandedQwen(entrypoint, { cacheRoot } = {}) {
   const packageDir = dirname(entrypoint)
   // Keep the copy within the same npm dependency tree so Node resolves native
   // and bundled imports exactly as the installed upstream runtime does.
-  cacheRoot ??= join(dirname(dirname(packageDir)), '.cache', 'bccli-branded-engines')
+  cacheRoot ??= join(homedir(), '.bccli-preview', 'branded-engines')
   const patched = assertSource(packageDir)
   const outputHashes = Object.fromEntries(Object.entries(patched).map(([file, value]) => [file, digest(value)]))
   const manifest = { revision: BRAND_REVISION, version: VERSION, sourceHashes: SOURCE_HASHES, outputHashes }

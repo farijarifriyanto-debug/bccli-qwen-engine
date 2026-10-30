@@ -2,10 +2,12 @@
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
-import { readFileSync, realpathSync, lstatSync } from 'node:fs'
+import { readFileSync, realpathSync, lstatSync, existsSync } from 'node:fs'
 import { dirname, join, isAbsolute } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { startGatewayProxy } from './proxy.mjs'
 import { GATEWAY } from './gateway.mjs'
+import { listProviderDefinitions } from './providers.mjs'
 
 export { GATEWAY } from './gateway.mjs'
 export const DEFAULT_MODEL = 'ling-3.0-flash'
@@ -161,7 +163,7 @@ export function selectModel(models, value) {
   return value
 }
 
-export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false, resumeSession } = {}) {
+export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, continueSession = false, resumeSession, projectDir = process.cwd() } = {}) {
   if (continueSession && resumeSession !== undefined) throw Error('Cannot combine native Qwen --continue with --resume.')
   // --bare is security critical: project settings may otherwise override
   // the provider baseUrl, forwarding an API key to an attacker-controlled endpoint.
@@ -171,12 +173,17 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, co
     '--model', model, '--approval-mode', 'default',
     '--telemetry=false',
   ]
+  // Bare mode intentionally blocks implicit project auto-discovery.
+  // Explicitly register only the current workspace for AGENTS.md/QWEN.md
+  // instructions. No project settings/MCP/hooks are loaded by this flag.
+  if (!isAbsolute(projectDir)) throw Error('BCCLI workspace root must be absolute.')
+  args.push('--include-directories', projectDir)
   // The active AI can change with /model. Do not embed the STARTUP model
   // here: doing so would falsely identify a later selected model.
   // The BotConnector local proxy adds the actual request model to each
   // chat call, without forcing the AI to impersonate BCCLI.
   args.push('--append-system-prompt',
-    'Client application: BCCLI. The upstream coding engine is Qwen Code, which is software, not the AI model answering the user. Identify the responding AI using active_model_id from current-request runtime metadata (the model can change mid-session). If no current model ID is available, state that it is unknown. Do not call the assistant Qwen Code or BCCLI as if either were the AI model, and do not infer who developed the active model from the application or engine brand.')
+    'Client application: BCCLI. The upstream coding engine is Qwen Code, which is software, not the AI model answering the user. Identify the responding AI using active_model_id from current-request runtime metadata (the model can change mid-session). If no current model ID is available, state that it is unknown. Do not call the assistant Qwen Code or BCCLI as if either were the AI model, and do not infer who developed the active model from the application or engine brand. For coding tasks, prefer glob to locate files, grep_search to find source references, read_file to inspect exact content, write_file only to create an explicitly requested file, edit for minimal replacements, and run_shell_command for tests or build steps using tool approval. Preserve existing file contents when not explicitly authorized to overwrite. After executing, report actual output, exit codes, and failed tests; never claim that commands ran without evidence.')
   if (mcpConfig) args.push('--mcp-config', mcpConfig)
   if (continueSession) args.push('--continue')
   if (resumeSession !== undefined) args.push('--resume', ...(resumeSession === null ? [] : [resumeSession]))
@@ -193,6 +200,9 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home, p
     'GOOGLE_API_KEY', 'OPENROUTER_API_KEY', 'QWENCLOUD_API_KEY',
     'QWENCLOUD_TOKEN_PLAN_API_KEY', 'DEEPSEEK_API_KEY', 'GROQ_API_KEY', 'XAI_API_KEY',
   ]) delete env[name]
+  for (const entry of Object.values(listProviderDefinitions())) {
+    if (entry.env) delete env[entry.env]
+  }
   env.OPENAI_API_KEY = key
   env.OPENAI_BASE_URL = endpoint
   env.OPENAI_MODEL = model
@@ -236,6 +246,12 @@ export function resolveTrustedMcpConfig(input, { home = join(homedir(), '.bccli-
 }
 
 export function resolveQwenEntrypoint() {
+  // The preview includes an integrity-pinned Apache-2.0 engine snapshot.
+  // Keep its original source attribution; npm must not install Qwen or
+  // its optional audio-capture install hook as a dependency.
+  const bundled = fileURLToPath(new URL('./engine/cli-entry.js', import.meta.url))
+  if (existsSync(bundled)) return bundled
+  // Local source checkout still supports original dependency for tests.
   const require = createRequire(import.meta.url)
   return join(dirname(require.resolve('@qwen-code/qwen-code/package.json')), 'cli-entry.js')
 }
@@ -243,9 +259,9 @@ export function resolveQwenEntrypoint() {
 export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, resumeSession, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
   // The real API key never enters Qwen, its tools, or any MCP child process.
   // Only this launcher retains it while the ephemeral proxy is running.
-  const proxy = await proxyFactory({ key, endpoint: upstream })
+  const proxy = await proxyFactory({ key, endpoint: upstream, liveProvider: true, initialProvider: providerId })
   try {
-    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, resumeSession })]
+    const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, resumeSession, projectDir: process.cwd() })]
     const child = spawnImpl(process.execPath, args, {
       cwd: process.cwd(), env: childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl, providerId }),
       stdio: 'inherit', windowsHide: false, shell: false,

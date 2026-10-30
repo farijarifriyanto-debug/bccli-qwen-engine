@@ -16,10 +16,77 @@ export const PROVIDERS = Object.freeze({
   deepseek: Object.freeze({ name: 'DeepSeek', endpoint: 'https://api.deepseek.com/v1', env: 'DEEPSEEK_API_KEY' }),
   groq: Object.freeze({ name: 'Groq', endpoint: 'https://api.groq.com/openai/v1', env: 'GROQ_API_KEY' }),
   xai: Object.freeze({ name: 'xAI', endpoint: 'https://api.x.ai/v1', env: 'XAI_API_KEY' }),
+  'ollama-cloud': Object.freeze({ name: 'Ollama Cloud', endpoint: 'https://ollama.com/v1', env: 'OLLAMA_API_KEY' }),
+  together: Object.freeze({ name: 'Together AI', endpoint: 'https://api.together.xyz/v1', env: 'TOGETHER_API_KEY' }),
+  fireworks: Object.freeze({ name: 'Fireworks AI', endpoint: 'https://api.fireworks.ai/inference/v1', env: 'FIREWORKS_API_KEY' }),
+  mistral: Object.freeze({ name: 'Mistral AI', endpoint: 'https://api.mistral.ai/v1', env: 'MISTRAL_API_KEY' }),
+  cerebras: Object.freeze({ name: 'Cerebras Cloud', endpoint: 'https://api.cerebras.ai/v1', env: 'CEREBRAS_API_KEY' }),
+  sambanova: Object.freeze({ name: 'SambaNova Cloud', endpoint: 'https://api.sambanova.ai/v1', env: 'SAMBANOVA_API_KEY' }),
+  nvidia: Object.freeze({ name: 'NVIDIA NIM', endpoint: 'https://integrate.api.nvidia.com/v1', env: 'NVIDIA_API_KEY' }),
+  huggingface: Object.freeze({ name: 'Hugging Face Router', endpoint: 'https://router.huggingface.co/v1', env: 'HF_TOKEN' }),
+  moonshot: Object.freeze({ name: 'Moonshot AI', endpoint: 'https://api.moonshot.ai/v1', env: 'MOONSHOT_API_KEY' }),
+  zai: Object.freeze({ name: 'Z.AI', endpoint: 'https://api.z.ai/api/paas/v4', env: 'ZAI_API_KEY' }),
+
 })
 export const ALLOWED_PROVIDER_ENDPOINTS = Object.freeze(Object.values(PROVIDERS).map(p => p.endpoint))
 const ID = /^[a-z][a-z0-9-]{0,31}$/
 const MAX_BLOB_BYTES = 64 * 1024
+const MAX_CATALOG_BYTES = 32 * 1024
+const BAD_SUFFIX = /\.(?:local|localhost|internal|lan|home|test|invalid|example|onion)$/i
+export function validateCustomProvider({ id, name, endpoint }) {
+  if (!ID.test(id) || Object.hasOwn(PROVIDERS,id)) throw Error('Custom provider ID is invalid or already reserved.')
+  if (typeof name !== 'string' || name.length < 2 || name.length > 64 || /[\r\n<>]/.test(name)) throw Error('Invalid custom provider name.')
+  if (typeof endpoint !== 'string' || endpoint.length > 240) throw Error('Custom endpoint URL is too long.')
+  let u
+  try { u = new URL(endpoint) } catch { throw Error('Custom endpoint must be a valid HTTPS URL.') }
+  const host = u.hostname.toLowerCase()
+  if (u.protocol !== 'https:' || u.port || u.username || u.password || u.search || u.hash ||
+      host.endsWith('.') || BAD_SUFFIX.test(host) ||
+      !/^(?:[a-z0-9-]+\.)+[a-z]{2,}$/.test(host) || host.split('.').some(x=>x.startsWith('-')||x.endsWith('-')) ||
+      /^\d+\.\d+\.\d+\.\d+$/.test(host) ||
+      !/^\/(?:[a-zA-Z0-9_-]+\/){0,5}[a-zA-Z0-9_-]+$/.test(u.pathname) ||
+      !u.pathname.endsWith('/v1') && !u.pathname.endsWith('/v4')) throw Error('Custom provider requires a public HTTPS OpenAI-compatible /v1 or /v4 endpoint.')
+  return Object.freeze({ name: name.trim(), endpoint: u.origin + u.pathname, custom: true })
+}
+export function customProviderCatalog({ root = providerRoot() } = {}) {
+  if (!ownerDirectory(root)) return {}
+  const path = join(root, 'custom-providers.json')
+  if (!existsSync(path)) return {}
+  const meta=lstatSync(path)
+  if (!meta.isFile() || meta.isSymbolicLink() || meta.size > MAX_CATALOG_BYTES) throw Error('Unsafe custom provider registry.')
+  const parsed=JSON.parse(readFileSync(path,'utf8'))
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw Error('Invalid custom provider catalog.')
+  const entries=Object.entries(parsed)
+  if (entries.length>48) throw Error('Too many custom providers.')
+  const result=Object.create(null)
+  for (const [id, config] of entries) {
+    if (!config || typeof config !== 'object') throw Error('Invalid provider record')
+    result[id]=validateCustomProvider({id,name:config.name,endpoint:config.endpoint})
+  }
+  return result
+}
+export function listProviderDefinitions({ root = providerRoot() } = {}) {
+  return { ...PROVIDERS, ...customProviderCatalog({ root }) }
+}
+export function registerCustomProvider(id, name, endpoint, { root = providerRoot() } = {}) {
+  const config=validateCustomProvider({ id, name, endpoint })
+  ownerDirectory(root,{create:true})
+  const data=customProviderCatalog({root})
+  if (Object.hasOwn(data,id)) throw Error('Custom provider already exists.')
+  if (Object.keys(data).length>=48) throw Error('Custom provider limit reached.')
+  const path=join(root,'custom-providers.json')
+  if (existsSync(path) && (!lstatSync(path).isFile()||lstatSync(path).isSymbolicLink())) throw Error('Unsafe custom provider catalog.')
+  const tmp=path+'.'+randomBytes(8).toString('hex')+'.tmp'
+  try {
+    writeFileSync(tmp,JSON.stringify({...data,[id]:config},null,2)+'\n',{encoding:'utf8',flag:'wx',mode:0o600})
+    renameSync(tmp,path)
+  }finally{rmSync(tmp,{force:true})}
+  return {id,...config}
+}
+export function approvedProviderEndpoint(endpoint, { root = providerRoot() } = {}) {
+  return Object.values(listProviderDefinitions({root})).some(p=>p.endpoint===endpoint)
+}
+
 const ENC_SCRIPT = '$ErrorActionPreference="Stop"; $plain=[Console]::In.ReadToEnd().Trim(); if(-not $plain){exit 1}; $sec=ConvertTo-SecureString -String $plain -AsPlainText -Force; [Console]::Out.Write((ConvertFrom-SecureString -SecureString $sec))'
 const DEC_SCRIPT = '$ErrorActionPreference="Stop"; $encoded=[Console]::In.ReadToEnd().Trim(); $sec=ConvertTo-SecureString -String $encoded; $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec); try{[Console]::Out.Write([Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr))}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}'
 
@@ -29,8 +96,9 @@ export function providerRoot({ home = homedir(), env = process.env } = {}) {
   return path
 }
 export function providerDefinition(id) {
-  if (!Object.hasOwn(PROVIDERS, id)) throw Error('Unknown provider. Choose from: ' + Object.keys(PROVIDERS).join(', '))
-  return PROVIDERS[id]
+  const definitions=listProviderDefinitions()
+  if (!Object.hasOwn(definitions,id)) throw Error('Unknown provider. Choose from: '+Object.keys(definitions).join(', '))
+  return definitions[id]
 }
 function ownerDirectory(root, { create = false } = {}) {
   if (create) mkdirSync(root, { recursive: true, mode: 0o700 })
@@ -91,7 +159,7 @@ export function isConfigured(id, { env = process.env, root = providerRoot({env})
     } catch {}
     return botConnectorCredentialStatus({ env }).configured
   }
-  if (env[PROVIDERS[id].env]?.trim()) return true
+  if (providerDefinition(id).env && env[providerDefinition(id).env]?.trim()) return true
   try { return ownerDirectory(root) && lstatSync(keyPath(root, id)).isFile() && !lstatSync(keyPath(root, id)).isSymbolicLink() }
   catch { return false }
 }
@@ -172,7 +240,7 @@ export function resolveProvider(id, { env = process.env, root = providerRoot({en
   try { key = storedProviderKey(id, {root}) }
   catch (error) {
     if (error?.message !== 'Provider not configured. Run provider add.') throw error
-    key = env[info.env]?.trim()
+    key = info.env ? env[info.env]?.trim() : undefined
   }
   if (!key) throw Error('Provider not configured. Run provider add ' + id + ' or set ' + info.env + '.')
   return { id, ...info, key }

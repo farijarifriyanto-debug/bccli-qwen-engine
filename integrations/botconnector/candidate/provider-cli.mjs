@@ -1,5 +1,5 @@
 // Provider management is an explicitly invoked CLI operation, not a model prompt.
-import { PROVIDERS, isConfigured, providerDefinition, removeProvider, saveProviderKey, selectedProvider, useProvider } from './providers.mjs'
+import { PROVIDERS, listProviderDefinitions, providerDefinition, isConfigured, removeProvider, saveProviderKey, selectedProvider, useProvider } from './providers.mjs'
 
 export async function hiddenApiKey({ input = process.stdin, output = process.stdout } = {}) {
   if (!input.isTTY || typeof input.setRawMode !== 'function') throw Error('Provider add requires an interactive terminal to enter a hidden API key.')
@@ -48,7 +48,7 @@ export async function runProviderCommand(words, {
   }
   if (action === 'list') {
     const current = active({env})
-    for (const [name, info] of Object.entries(PROVIDERS)) {
+    for (const [name, info] of Object.entries(listProviderDefinitions())) {
       out(name + ' - ' + info.name + ' [' + (configured(name,{env}) ? 'configured' : 'no key') + ']' + (name === current ? ' [ACTIVE]' : ''))
     }
     out('Add: bccli provider add openrouter; select: bccli provider use openrouter')
@@ -57,7 +57,7 @@ export async function runProviderCommand(words, {
   }
   providerDefinition(id)
   if (action === 'add') {
-    out('Provider: ' + PROVIDERS[id].name + ' (API use may incur charges; entering a key does not send an AI prompt).')
+    out('Provider: ' + providerDefinition(id).name + ' (API use may incur charges; entering a key does not send an AI prompt).')
     const key = await getKey()
     save(id, key)
     select(id,{env})

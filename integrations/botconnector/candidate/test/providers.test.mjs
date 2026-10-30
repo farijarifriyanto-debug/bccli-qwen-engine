@@ -86,12 +86,14 @@ test('provider subprocess env strips all inherited provider credentials and isol
     BOTCONNECTOR_API_KEY:'fake-a',OPENROUTER_API_KEY:'fake-b',
     DEEPSEEK_API_KEY:'fake-c',GROQ_API_KEY:'fake-d',
     XAI_API_KEY:'fake-e',OPENAI_API_KEY:'fake-f',
+    OLLAMA_API_KEY:'fake-ollama',TOGETHER_API_KEY:'fake-together',FIREWORKS_API_KEY:'fake-fireworks',
+    MISTRAL_API_KEY:'fake-mistral',NVIDIA_API_KEY:'fake-nvidia',HF_TOKEN:'fake-huggingface',
   }
   const env=childEnvironment(inherited,'LOCAL_TOKEN','model-x',{providerId:'openrouter',endpoint:'http://127.0.0.1:3001/v1'})
   assert.equal(env.OPENAI_API_KEY,'LOCAL_TOKEN')
   assert.equal(env.BCCLI_ACTIVE_PROVIDER,'openrouter')
   assert.ok(env.QWEN_HOME.includes('sessions-openrouter'))
-  for(const name of ['BOTCONNECTOR_API_KEY','OPENROUTER_API_KEY','DEEPSEEK_API_KEY','GROQ_API_KEY','XAI_API_KEY']) {
+  for(const name of ['BOTCONNECTOR_API_KEY','OPENROUTER_API_KEY','DEEPSEEK_API_KEY','GROQ_API_KEY','XAI_API_KEY','OLLAMA_API_KEY','TOGETHER_API_KEY','FIREWORKS_API_KEY','MISTRAL_API_KEY','NVIDIA_API_KEY','HF_TOKEN']) {
     assert.equal(env[name],undefined,name)
   }
   const bc=childEnvironment(inherited,'LOCAL_TOKEN','model-x',{providerId:'botconnector'})
