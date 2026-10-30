@@ -24,9 +24,19 @@ export function assertCandidateRuntimeSupported({ platform = process.platform, n
 }
 const MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/
 const ALLOWED = new Set(['models', 'run', 'chat', 'resume'])
+// Public BCCLI commands are not supported by this isolated candidate. Do
+// not accidentally treat them as AI prompts, which could spend user credits.
+const PUBLIC_ONLY_COMMANDS = new Set([
+  'login', 'logout', 'provider', 'mcp', 'connect', 'disconnect',
+  'integrations', 'update', 'serve', 'acp', 'plugins', 'gh-bot',
+  'completion', 'stats', 'export', 'import', 'pr',
+])
 
 export function parseArgs(argv) {
   const args = [...argv]
+  if (args.length && PUBLIC_ONLY_COMMANDS.has(args[0])) {
+    throw Error('Command "' + args[0] + '" is available only in public BCCLI 0.4.17, not this isolated candidate. No AI request was sent.')
+  }
   const command = ALLOWED.has(args[0]) ? args.shift() : 'chat'
   let model, mcpConfig, json = false
   const prompt = []
