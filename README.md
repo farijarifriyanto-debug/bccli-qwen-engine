@@ -2,11 +2,18 @@
 
 **BotConnector Coding Agent** — a multi-provider coding assistant for BotConnector Cloud and direct API providers.
 
-This repository contains the next-generation **BCCLI runtime**. The public stable CLI source remains at [bccli](https://github.com/farijarifriyanto-debug/bccli), currently version 0.4.17. The new runtime is still a prerelease and must not silently replace the stable SDK.
+This repository contains the next-generation **BCCLI runtime**. The public stable CLI source remains at [bccli](https://github.com/farijarifriyanto-debug/bccli), currently version 0.4.17. The production package includes the original BCCLI 0.4.17 SDK and legacy command implementation in the same installation to protect existing automation.
 
 ## Install
 
-Stable:
+Production 0.5.0 (single command; after the release passes all CI gates):
+
+~~~sh
+npm install -g https://github.com/farijarifriyanto-debug/bccli-runtime/releases/download/v0.5.0/botconnector-bccli-0.5.0.tgz
+bccli
+~~~
+
+Registry stable (currently 0.4.17 until npm publication is authenticated):
 
 ~~~sh
 npm install -g @botconnector/bccli@latest
@@ -32,9 +39,9 @@ See the [install guide](integrations/botconnector/INSTALL.md) and [RC.5 release 
 - `.github/workflows/bccli-*.yml` — Windows/Linux CI and prerelease publication gates.
 - The upstream-sync `main` branch remains available separately; BCCLI changes are developed on the dedicated product release branch.
 
-## Release status
+## Compatibility and release gates
 
-RC.5 addresses direct Cloud key onboarding and maintains the upstream-backed 4-test integration gate. Full compatibility with the stable SDK, JSON/stream-JSON automation, legacy MCP and integrations, cross-platform credential persistence and interactive live scenarios remains **unverified**. Stable promotion is blocked until those tests pass or incompatible interfaces have an approved migration plan.
+The 0.5.0 production package bundles SHA512-pinned BCCLI 0.4.17 for old SDK exports, JSON/stream-JSON automation and legacy commands. New interactive coding uses the new runtime; explicit old commands preserve their old implementation. No second user-visible launcher. Old sessions are not silently migrated. Windows, Linux and macOS Node 22/24 build and installed-package acceptance must pass before GitHub v0.5.0 is published. npm latest only changes after a separately authenticated registry publication. For details see [production notes](integrations/botconnector/release/NOTES-0.5.0.md).
 
 ## Third-party engine and licenses
 
