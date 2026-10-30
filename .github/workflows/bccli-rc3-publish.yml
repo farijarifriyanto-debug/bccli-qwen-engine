@@ -10,7 +10,6 @@ on:
     branches:
       - "release/bccli-new-v0.1.0-rc.3"
     paths:
-      - ".github/workflows/bccli-rc2-publish.yml"
 
 permissions:
   contents: read
@@ -105,7 +104,7 @@ jobs:
             echo "A matching tag already exists; refusing to overwrite it."
             exit 1
           fi
-          cd "$RUNNER_TEMP/bccli-publish-rc2"
+          cd "$RUNNER_TEMP/bccli-publish-rc3"
           sha256sum botconnector-bccli-0.5.0-rc.3.tgz > SHA256SUMS.txt
           test -s SHA256SUMS.txt
           test -s botconnector-bccli-0.5.0-rc.3.tgz
@@ -116,8 +115,8 @@ jobs:
         run: |
           set -euo pipefail
           gh release create 'bccli-v0.5.0-rc.3' \
-            "$RUNNER_TEMP/bccli-publish-rc2/botconnector-bccli-0.5.0-rc.3.tgz" \
-            "$RUNNER_TEMP/bccli-publish-rc2/SHA256SUMS.txt" \
+            "$RUNNER_TEMP/bccli-publish-rc3/botconnector-bccli-0.5.0-rc.3.tgz" \
+            "$RUNNER_TEMP/bccli-publish-rc3/SHA256SUMS.txt" \
             --target "$GITHUB_SHA" \
             --title 'BCCLI 0.5.0-rc.3 — new engine preview' \
             --notes-file integrations/botconnector/release/NOTES-0.5.0-rc.3.md \
