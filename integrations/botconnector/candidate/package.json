@@ -1,0 +1,47 @@
+{
+  "name": "@botconnector/bccli-qwen-candidate",
+  "private": true,
+  "version": "0.0.0",
+  "description": "BCCLI | BotConnector coding agent — isolated candidate build",
+  "type": "module",
+  "bin": {
+    "bccli-qwen-candidate": "./cli.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@qwen-code/qwen-code": "0.26.3"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "test:security": "node --test test/security-e2e.test.mjs test/proxy-mcp-e2e.test.mjs test/trusted-mcp.test.mjs test/proxy.test.mjs",
+    "test:integration": "node --test test-integration/*.test.mjs",
+    "build": "node --check cli.mjs && node --check core.mjs && node --check proxy.mjs && node --check gateway.mjs && node --check branding.mjs && node --check credentials.mjs && node --check model-command.mjs",
+    "rebuild": "npm run build && npm test && npm pack --ignore-scripts"
+  },
+  "license": "Apache-2.0",
+  "overrides": {
+    "sharp": "0.35.5"
+  },
+  "files": [
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "cli.mjs",
+    "core.mjs",
+    "proxy.mjs",
+    "gateway.mjs",
+    "branding.mjs",
+    "credentials.mjs",
+    "model-command.mjs"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/farijarifriyanto-debug/bccli.git"
+  },
+  "homepage": "https://github.com/farijarifriyanto-debug/bccli#readme",
+  "bugs": {
+    "url": "https://github.com/farijarifriyanto-debug/bccli/issues"
+  },
+  "author": "BICO Inovasi Digital / BotConnector"
+}
