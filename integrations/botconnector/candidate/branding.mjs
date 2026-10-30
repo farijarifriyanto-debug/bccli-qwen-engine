@@ -19,7 +19,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-ERV2ECV3.js': '7d2511a8317ee2c44edd2fd62b43966b9acfbfaac79175cd0cc9fb9ed42051c6',
   'chunks/server-SJNWHHV4.js': '42ceeddc69dda95fbaac276cbd94e99432892305d169d248e760c9d94aab6eaf',
 })
-const BRAND_REVISION = 'bccli-new-20261030-neutral-identity-v3'
+const BRAND_REVISION = 'bccli-new-20261030-native-scrollback-v5'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -203,6 +203,14 @@ export function patchUiChunk(file, text) {
       'qwen --resume ${sessionId}',
       'bccli -c',
       'Ink session-exit command')
+    // The Ink viewport enters the alternate screen and captures scroll/drag
+    // events. On Windows, prefer real terminal scrollback and native selection.
+    // Users may opt back into the in-app viewport with BCCLI_ENABLE_APP_MOUSE=1.
+    result = replaceExactly(result,
+      'settings.merged.ui?.useTerminalBuffer',
+      'process.platform==="win32"&&process.env.BCCLI_ENABLE_APP_MOUSE!=="1"?false:settings.merged.ui?.useTerminalBuffer',
+      3,
+      'Ink native scrollback and mouse selection on Windows')
     return renameProductLanguage(result)
   }
   if (file === 'chunks/start-opentui-ui-Q34XCEMN.js') {
@@ -226,6 +234,22 @@ export function patchUiChunk(file, text) {
       'qwen --resume ${sessionId}',
       'bccli -c',
       'OpenTUI transcript resume command')
+    // Windows Terminal should own mouse selection and scrollbar navigation.
+    // OpenTUI's alternate screen + mouse reporting otherwise prevents the
+    // familiar drag-up-to-select text behavior. Other platforms stay unchanged.
+    // Power users can set BCCLI_ENABLE_APP_MOUSE=1 for legacy in-app mouse.
+    result = replaceOnce(
+      result,
+      'useMouse:settings.merged.ui?.mouseTracking!==false',
+      'useMouse:process.platform==="win32"?process.env.BCCLI_ENABLE_APP_MOUSE==="1":settings.merged.ui?.mouseTracking!==false,screenMode:process.platform==="win32"&&process.env.BCCLI_ENABLE_APP_MOUSE!=="1"?"main-screen":"alternate-screen"',
+      'OpenTUI Windows native mouse selection and screen buffer',
+    )
+    result = replaceOnce(
+      result,
+      'mouseTracking:settings.merged.ui?.mouseTracking!==false',
+      'mouseTracking:process.platform==="win32"?process.env.BCCLI_ENABLE_APP_MOUSE==="1":settings.merged.ui?.mouseTracking!==false',
+      'OpenTUI Windows transcript mouse selection',
+    )
     return renameProductLanguage(result)
   }
   if (file === 'chunks/chunk-QUFSNRKR.js') {
