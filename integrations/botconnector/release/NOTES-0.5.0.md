@@ -7,7 +7,7 @@ This release packages the **new BCCLI coding runtime and the existing BCCLI 0.4.
 Use the immutable GitHub release package:
 
 ~~~sh
-npm install -g https://github.com/farijarifriyanto-debug/bccli-runtime/releases/download/v0.5.0/botconnector-bccli-0.5.0.tgz
+npm install -g https://github.com/farijarifriyanto-debug/bccli-runtime/releases/download/bccli-v0.5.0/botconnector-bccli-0.5.0.tgz
 bccli
 ~~~
 
