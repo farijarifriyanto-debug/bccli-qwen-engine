@@ -40,7 +40,7 @@ function ownerDirectory(root, { create = false } = {}) {
   return true
 }
 function keyPath(root, id) {
-  if (!ID.test(id) || id === 'botconnector') throw Error('Provider key storage requires a supported non-BotConnector provider.')
+  if (!ID.test(id)) throw Error('Provider key storage requires a supported provider.')
   return join(root, 'provider-' + id + '.dpapi')
 }
 function dpapi(script, input, { platform = process.platform, runner = spawnSync } = {}) {
@@ -54,7 +54,6 @@ function dpapi(script, input, { platform = process.platform, runner = spawnSync 
 }
 export function saveProviderKey(id, key, { root = providerRoot(), platform = process.platform, runner = spawnSync } = {}) {
   providerDefinition(id)
-  if (id === 'botconnector') throw Error('Use bccli-legacy login bc-cloud or BOTCONNECTOR_API_KEY for BotConnector credentials.')
   if (typeof key !== 'string' || !key.trim() || key.length > 8192 || /[\r\n]/.test(key)) throw Error('API key cannot be empty, multiline, or oversized.')
   if (platform !== 'win32') throw Error('On non-Windows systems, use the provider API key environment variable.')
   ownerDirectory(root, { create: true })
@@ -70,7 +69,6 @@ export function saveProviderKey(id, key, { root = providerRoot(), platform = pro
 }
 export function storedProviderKey(id, { root = providerRoot(), platform = process.platform, runner = spawnSync } = {}) {
   providerDefinition(id)
-  if (id === 'botconnector') throw Error('BotConnector credentials are managed by public BCCLI.')
   if (!ownerDirectory(root)) throw Error('Provider not configured. Run provider add.')
   const path = keyPath(root, id)
   let info
@@ -83,7 +81,16 @@ export function storedProviderKey(id, { root = providerRoot(), platform = proces
 }
 export function isConfigured(id, { env = process.env, root = providerRoot({env}) } = {}) {
   providerDefinition(id)
-  if (id === 'botconnector') return botConnectorCredentialStatus({ env }).configured
+  if (id === 'botconnector') {
+    if (env.BOTCONNECTOR_API_KEY?.trim()) return true
+    try {
+      if (ownerDirectory(root)) {
+        const info = lstatSync(keyPath(root, id))
+        if (info.isFile() && !info.isSymbolicLink() && info.size <= MAX_BLOB_BYTES) return true
+      }
+    } catch {}
+    return botConnectorCredentialStatus({ env }).configured
+  }
   if (env[PROVIDERS[id].env]?.trim()) return true
   try { return ownerDirectory(root) && lstatSync(keyPath(root, id)).isFile() && !lstatSync(keyPath(root, id)).isSymbolicLink() }
   catch { return false }
@@ -138,7 +145,6 @@ export function useProvider(id, { env = process.env, root = providerRoot({env}) 
 }
 export function removeProvider(id, { env = process.env, root = providerRoot({env}) } = {}) {
   providerDefinition(id)
-  if (id === 'botconnector') throw Error('BotConnector credentials are managed by bccli-legacy or BOTCONNECTOR_API_KEY.')
   if (!ownerDirectory(root)) return
   const path = keyPath(root, id)
   if (existsSync(path)) {
@@ -152,7 +158,14 @@ export function removeProvider(id, { env = process.env, root = providerRoot({env
 }
 export function resolveProvider(id, { env = process.env, root = providerRoot({env}) } = {}) {
   const info = providerDefinition(id)
-  if (id === 'botconnector') return { id, ...info, key: botConnectorKey({env}) }
+  if (id === 'botconnector') {
+    // Saved keys take precedence; legacy credentials are read only as fallback.
+    try { return { id, ...info, key: storedProviderKey(id, { root }) } }
+    catch (error) {
+      if (error?.message !== 'Provider not configured. Run provider add.') throw error
+      return { id, ...info, key: botConnectorKey({ env }) }
+    }
+  }
   // An explicit key saved through "provider add" must win over stale environment
   // variables. Never silently fall back if the encrypted file is corrupted.
   let key
