@@ -8,7 +8,7 @@ import { childEnvironment, qwenArguments, resolveQwenEntrypoint } from '../core.
 import { startGatewayProxy } from '../proxy.mjs'
 const completion = (model, delta, finish) =>
   'data: ' + JSON.stringify({ id:'mock',object:'chat.completion.chunk',created:1,model,choices:[{index:0,delta,finish_reason:finish}] })+'\n\n'
-test('real Qwen reads local fixture and sends tool result to LLM with default approvals', { timeout: 32000 }, async () => {
+test('real Qwen reads permitted fixture and sends tool result to LLM', { timeout: 32000 }, async () => {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'bccli-tool-loop-'))
   const marker='READ_TOOL_LOOP_MARKER_ONLY'
   const file=path.join(root,'fixture.txt')
@@ -33,6 +33,8 @@ test('real Qwen reads local fixture and sends tool result to LLM with default ap
     const env=childEnvironment({...process.env,CI:'true',NO_COLOR:'1',QWEN_CODE_MAX_OUTPUT_TOKENS:'4096'},proxy.token,'ling-3.0-flash',{endpoint:proxy.baseUrl,home:path.join(root,'home')})
     env.QWEN_CODE_SYSTEM_SETTINGS_PATH=path.join(root,'system.json')
     const args=[resolveQwenEntrypoint(),...qwenArguments('ling-3.0-flash','Read fixture.txt using tool, report its content.',proxy.baseUrl)]
+    // Explicitly authorize only the fake fixture read in headless CI; edits still need approval.
+    args.splice(args.indexOf('--approval-mode'),0,'--allowed-tools','read_file')
     const result=await new Promise((resolve,reject)=>{
       const child=spawn(process.execPath,args,{cwd:root,env,stdio:['ignore','pipe','pipe']})
       let stdout='',stderr=''
