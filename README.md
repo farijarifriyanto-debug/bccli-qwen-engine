@@ -9,7 +9,7 @@ This repository contains the next-generation **BCCLI runtime**. The public stabl
 Production 0.5.0 (single command; after the release passes all CI gates):
 
 ~~~sh
-npm install -g https://github.com/farijarifriyanto-debug/bccli-runtime/releases/download/v0.5.0/botconnector-bccli-0.5.0.tgz
+npm install -g https://github.com/farijarifriyanto-debug/bccli-runtime/releases/download/bccli-v0.5.0/botconnector-bccli-0.5.0.tgz
 bccli
 ~~~
 
