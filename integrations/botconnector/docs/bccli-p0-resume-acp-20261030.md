@@ -25,4 +25,5 @@
 - Source and installed upstream v0.26.3 `--help` advertise `--resume [ID]` and `--acp`.
 - On the owner's Windows machine, existing BCCLI new-engine sessions include UUID-named records.
 - Offline staging syntax PASS and 19/19 tests PASS, including argument ambiguity, UUID validation, protected credential forwarding, default tool approvals and per-provider session isolation.
+- Offline upstream ACP initialize handshake PASS on Windows Node 22.23.4 using a dummy key and loopback endpoint: valid JSON-RPC response with `protocolVersion: 1`, no stdout contamination, no stderr errors, no paid calls. This validates the upstream ACP mechanism; full BCCLI-editor integration remains unverified.
 - Candidate Windows Node 22 and Node 24 GitHub Actions required before approval; release remains HOLD.
