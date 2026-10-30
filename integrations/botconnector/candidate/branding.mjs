@@ -21,7 +21,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-ERV2ECV3.js': '7d2511a8317ee2c44edd2fd62b43966b9acfbfaac79175cd0cc9fb9ed42051c6',
   'chunks/server-SJNWHHV4.js': '42ceeddc69dda95fbaac276cbd94e99432892305d169d248e760c9d94aab6eaf',
 })
-const BRAND_REVISION = 'bccli-new-20261030-arrow-provider-picker-v8'
+const BRAND_REVISION = 'bccli-new-20261030-provider-search-and-add-v9'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])

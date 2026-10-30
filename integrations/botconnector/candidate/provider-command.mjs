@@ -28,6 +28,13 @@ export const BCCLI_PROVIDER_COMMAND = String.raw`var authCommand={name:"provider
     if(params[0]==="list"){
       return response("info","BCCLI providers — active: "+current+"\n\n"+providers.map((p,i)=>(i+1)+". "+p.id+" — "+p.name+(p.active?" [ACTIVE]":"")+(p.configured?" [configured]":" [API key required]")).join("\n")+"\n\nChoose: /provider NUMBER or /provider NAME\nSave/replace key: /provider add NAME\nDelete saved key: /provider remove NAME\nSelect AI: /provider NAME MODEL_ID\nKeys open a hidden Windows dialog; NEVER paste keys into chat.");
     }
+    if(params.length===1&&params[0].toLowerCase()==="add"){
+      const created=await request("/bccli/provider/custom/add",{method:"POST",timeoutMs:190000,
+        headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"user-confirmed-local-custom-provider-dialog"})});
+      if(created?.cancelled)return response("info","Add Provider cancelled.");
+      if(created?.added)return response("info","Provider "+created.name+" added. Open /provider "+created.provider+" to add your secure API key and choose a model.");
+      return response("error","Provider not added.");
+    }
     if(["add","replace","remove","delete"].includes(params[0].toLowerCase())){
       if(params.length!==2)return response("error","Specify a provider. Example: /provider add openrouter or /provider remove openrouter.");
       var action=params[0].toLowerCase(),target=params[1].toLowerCase();

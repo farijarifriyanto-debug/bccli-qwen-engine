@@ -1,8 +1,8 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
 import { GATEWAY } from './gateway.mjs'
-import { ALLOWED_PROVIDER_ENDPOINTS, PROVIDERS, resolveProvider, isConfigured, useProvider, saveSelectedModel, saveProviderKey, removeProvider } from './providers.mjs'
-import { promptProviderKey, confirmRemoveProviderKey } from './native-key-dialog.mjs'
+import { ALLOWED_PROVIDER_ENDPOINTS, PROVIDERS, listProviderDefinitions, providerDefinition, registerCustomProvider, approvedProviderEndpoint, resolveProvider, isConfigured, useProvider, saveSelectedModel, saveProviderKey, removeProvider } from './providers.mjs'
+import { promptProviderKey, confirmRemoveProviderKey, promptCustomProvider } from './native-key-dialog.mjs'
 
 // This proxy lives only for one Qwen Code session. Real provider keys remain in
 // the launcher process; MCP and bash subprocesses can see only a short-lived
@@ -139,8 +139,8 @@ function matchesToken(auth, token) {
   return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
-export async function startGatewayProxy({ key, endpoint = GATEWAY, token = randomBytes(32).toString('hex'), fetchImpl = fetch, liveProvider = false, initialProvider = 'botconnector', resolveProfile = resolveProvider, configured = isConfigured, selectProvider = useProvider, rememberModel = saveSelectedModel, secureKeyPrompt = promptProviderKey, secureRemoveConfirm = confirmRemoveProviderKey, persistKey = saveProviderKey, deleteKey = removeProvider } = {}) {
-  if (!ALLOWED_PROVIDER_ENDPOINTS.includes(endpoint)) throw Error('Unapproved provider endpoint; local proxy refused to start.')
+export async function startGatewayProxy({ key, endpoint = GATEWAY, token = randomBytes(32).toString('hex'), fetchImpl = fetch, liveProvider = false, initialProvider = 'botconnector', resolveProfile = resolveProvider, configured = isConfigured, selectProvider = useProvider, rememberModel = saveSelectedModel, secureKeyPrompt = promptProviderKey, secureRemoveConfirm = confirmRemoveProviderKey, persistKey = saveProviderKey, deleteKey = removeProvider, promptNewProvider = promptCustomProvider, registerNewProvider = registerCustomProvider } = {}) {
+  if (!approvedProviderEndpoint(endpoint)) throw Error('Unapproved provider endpoint; local proxy refused to start.')
   if (typeof key !== 'string' || !key.trim()) throw Error('Gateway key is required for local proxy.')
   if (typeof token !== 'string' || token.length < 6 || token === key) throw Error('Invalid or non-isolated proxy token.')
 
@@ -161,19 +161,19 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
     }
     const input = JSON.parse(Buffer.concat(buffers).toString('utf8'))
     if (!input || typeof input !== 'object' || Array.isArray(input) || input.action !== 'user-confirmed-local-key-dialog' ||
-        typeof input.provider !== 'string' || !Object.hasOwn(PROVIDERS, input.provider) ||
+        typeof input.provider !== 'string' || !Object.hasOwn(listProviderDefinitions(), input.provider) ||
         Object.keys(input).some(name => name !== 'action' && name !== 'provider')) throw Error('Invalid key-management request')
     return input.provider
   }
 
-  const publicProviders = () => Object.entries(PROVIDERS).map(([id, item]) => ({
+  const publicProviders = () => Object.entries(listProviderDefinitions()).map(([id, item]) => ({
     id, name: item.name, active: id === active.id, configured: configured(id),
   }))
   const getModels = async (id) => {
-    if (!Object.hasOwn(PROVIDERS, id)) throw Error('Unsupported provider')
+    if (!Object.hasOwn(listProviderDefinitions(), id)) throw Error('Unsupported provider')
     if (!configured(id)) throw Error('Provider is not configured')
     const profile = resolveProfile(id)
-    if (!ALLOWED_PROVIDER_ENDPOINTS.includes(profile.endpoint) || profile.endpoint !== PROVIDERS[id].endpoint || !profile.key) {
+    if (!approvedProviderEndpoint(profile.endpoint) || profile.endpoint !== providerDefinition(id).endpoint || !profile.key) {
       throw Error('Unsafe provider profile')
     }
     const upstream = await fetchImpl(profile.endpoint + '/models', {
@@ -224,7 +224,7 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
             return
           }
           if (typeof proposed !== 'string' || !proposed.trim() || proposed.length > 8192 || /[\r\n]/.test(proposed)) throw Error('Invalid input')
-          const where = PROVIDERS[id]
+          const where = providerDefinition(id)
           const upstream = await fetchImpl(where.endpoint + '/models', {
             method: 'GET', headers: { authorization: 'Bearer ' + proposed.trim(), accept: 'application/json' },
             redirect: 'error', signal: AbortSignal.timeout(12000),
@@ -264,6 +264,33 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
       }
       return
     }
+    if (liveProvider && req.url === '/v1/bccli/provider/custom/add') {
+      if (req.method !== 'POST') { fail(405,'Method not allowed.');return }
+      if (inFlight || managingKeys) { fail(409,'Finish the active operation first.');return }
+      managingKeys=true
+      try {
+        const parts=[]
+        let bytes=0
+        for await (const chunk of req) { bytes+=chunk.length;if(bytes>256)throw Error('Too long');parts.push(chunk) }
+        const json=JSON.parse(Buffer.concat(parts).toString('utf8'))
+        if (Object.keys(json).length!==1 || json.action!=='user-confirmed-local-custom-provider-dialog') throw Error('Bad action')
+        // This operation can only persist details explicitly entered into the
+        // local Windows dialog. No URL or credentials are accepted via HTTP.
+        const details=await promptNewProvider()
+        if (!details) {
+          res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'})
+          res.end(JSON.stringify({cancelled:true}))
+          return
+        }
+        const id=details.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,32)
+        const info=registerNewProvider(id,details.name,details.endpoint)
+        res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'})
+        res.end(JSON.stringify({provider:info.id,name:info.name,endpoint:info.endpoint,added:true}))
+      }catch {
+        fail(400,'Custom provider could not be registered. Use a unique name and a public HTTPS OpenAI-compatible base URL.')
+      }finally{managingKeys=false}
+      return
+    }
     const modelsMatch = liveProvider && /^\/v1\/bccli\/providers\/([a-z][a-z0-9-]{0,31})\/models$/.exec(req.url ?? '')
     if (modelsMatch && req.method === 'GET') {
       try {
@@ -290,7 +317,7 @@ export async function startGatewayProxy({ key, endpoint = GATEWAY, token = rando
         const id = selection?.provider
         const model = selection?.model
         if (selection?.action !== 'user-selected-provider' ||
-            typeof id !== 'string' || !Object.hasOwn(PROVIDERS, id) ||
+            typeof id !== 'string' || !Object.hasOwn(listProviderDefinitions(), id) ||
             typeof model !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/.test(model)) {
           fail(400, 'Invalid provider/model selection.')
           return

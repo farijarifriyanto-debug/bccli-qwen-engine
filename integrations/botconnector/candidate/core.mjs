@@ -7,6 +7,7 @@ import { dirname, join, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { startGatewayProxy } from './proxy.mjs'
 import { GATEWAY } from './gateway.mjs'
+import { listProviderDefinitions } from './providers.mjs'
 
 export { GATEWAY } from './gateway.mjs'
 export const DEFAULT_MODEL = 'ling-3.0-flash'
@@ -194,6 +195,9 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home, p
     'GOOGLE_API_KEY', 'OPENROUTER_API_KEY', 'QWENCLOUD_API_KEY',
     'QWENCLOUD_TOKEN_PLAN_API_KEY', 'DEEPSEEK_API_KEY', 'GROQ_API_KEY', 'XAI_API_KEY',
   ]) delete env[name]
+  for (const entry of Object.values(listProviderDefinitions())) {
+    if (entry.env) delete env[entry.env]
+  }
   env.OPENAI_API_KEY = key
   env.OPENAI_BASE_URL = endpoint
   env.OPENAI_MODEL = model
