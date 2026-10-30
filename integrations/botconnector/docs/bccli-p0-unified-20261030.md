@@ -20,7 +20,7 @@ Target: keep `bccli` as the **new** coding agent engine, without falling back to
 ## Evidence / gates
 
 - Prior independent candidate PRs: #2 (structured output), #3 (session picker/ACP), #4 (BotConnector direct keys).
-- Owner Windows Node 22.23.4 isolated unified staging: **41/41 tests PASS before the output-schema adapter; adapter tests also PASS in isolation** across core, credential, provider, startup-menu, ACP/resume and structured-output cases; five changed JS files syntax checked.
+- Owner Windows Node 22.23.4 isolated unified staging: **47/47 tests PASS** with the combined output adapter, credential protection, session picker, ACP and provider tests across core, credential, provider, startup-menu, ACP/resume and structured-output cases; five changed JS files syntax checked.
 - Offline upstream ACP initialization using a dummy key and loopback endpoint returned `protocolVersion:1` with clean JSON-RPC stdout; no paid AI calls.
 - Windows real DPAPI test for a fake BotConnector key passed; legacy credential content preserved in tests.
 - Offline mock-server contract test confirms adapter JSON emits the exact legacy keys `status,model,session_id,usage,duration_ms,result` and stream-json emits `text_delta,message,result`, both with exit code 0 and no paid API calls. Tool-call event parity still requires a separate E2E scenario.
