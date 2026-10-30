@@ -176,7 +176,7 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, co
   // The BotConnector local proxy adds the actual request model to each
   // chat call, without forcing the AI to impersonate BCCLI.
   args.push('--append-system-prompt',
-    'Client app: BCCLI. The active AI model can change in-session; use the current request runtime metadata, not the initial launch model. Do not treat the client app as the model or provider identity.')
+    'Client application: BCCLI. The upstream coding engine is Qwen Code, which is software, not the AI model answering the user. Identify the responding AI using active_model_id from current-request runtime metadata (the model can change mid-session). If no current model ID is available, state that it is unknown. Do not call the assistant Qwen Code or BCCLI as if either were the AI model, and do not infer who developed the active model from the application or engine brand.')
   if (mcpConfig) args.push('--mcp-config', mcpConfig)
   if (continueSession) args.push('--continue')
   if (resumeSession !== undefined) args.push('--resume', ...(resumeSession === null ? [] : [resumeSession]))
