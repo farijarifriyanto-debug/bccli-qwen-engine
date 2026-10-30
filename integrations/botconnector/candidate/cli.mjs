@@ -6,6 +6,7 @@ import { botConnectorCredentialStatus } from './credentials.mjs'
 import { resolveProvider, selectedProvider, providerDefinition, isConfigured } from './providers.mjs'
 import { runProviderCommand } from './provider-cli.mjs'
 import { startupMenu, autoSelectStartup, PROVIDER_SWITCH_EXIT } from './startup-menu.mjs'
+import { legacyCompatibilityMode, runLegacyCli } from './legacy-compat.mjs'
 
 function help() {
   console.log([
@@ -22,6 +23,8 @@ function help() {
     '  bccli auth status  (offline; does not print API key)',
     '  bccli provider add botconnector  (enter a new Cloud key securely)',
     '  bccli provider remove botconnector  (remove only the newly saved key)',
+    '  bccli mcp|connect|acp|serve|plugins|completion|stats  (legacy-compatible)',
+    '  bccli -p "task" --output-format json|stream-json  (legacy-compatible)',
     '  bccli provider list|add|use|remove [ID]  (manage provider keys)',
     '  bccli models --provider ID  (list models for provider)',
     '  bccli chat --provider ID --model MODEL_ID',
@@ -42,6 +45,7 @@ function help() {
 
 async function main() {
   const argv = process.argv.slice(2)
+  if (legacyCompatibilityMode(argv)) return runLegacyCli(argv)
   if (argv.length === 0 && !process.stdin.isTTY) { help(); return 2 }
   if (argv[0] === '--help' || argv[0] === '-h' || argv[0] === 'help') { help(); return 0 }
   if (argv.length === 1 && (argv[0] === '--version' || argv[0] === '-v')) {
