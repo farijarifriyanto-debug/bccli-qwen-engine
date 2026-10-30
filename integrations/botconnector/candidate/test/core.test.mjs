@@ -26,6 +26,21 @@ test('public -p headless text alias preserves candidate safety and explicit mode
   assert.throws(() => parseArgs(['login','-p']), /No AI request was sent/)
 })
 
+test('legacy subcommands after options never turn into paid prompts', () => {
+  for (const argv of [
+    ['-m','ling-3.0-flash','login'],
+    ['--model','ling-3.0-flash','provider','list'],
+    ['-m','ling-3.0-flash','models'],
+    ['-m','ling-3.0-flash','auth','status'],
+    ['--mcp-config','owner.json','connect'],
+  ]) {
+    assert.throws(() => parseArgs(argv), /No AI request was sent/, argv.join(' '))
+  }
+  // Deliberate prompts still work when the command is explicit.
+  assert.equal(parseArgs(['run','-m','ling-3.0-flash','login']).prompt,'login')
+  assert.equal(parseArgs(['-p','-m','ling-3.0-flash','provider']).prompt,'provider')
+})
+
 test('public -c continues only the current project session, with no prompt-route ambiguity', () => {
   assert.deepEqual(parseArgs(['-c']), {command:'resume', model:undefined, json:false, prompt:''})
   assert.deepEqual(parseArgs(['--continue','-m','ling-3.0-flash','inspect']), {command:'resume', model:'ling-3.0-flash', json:false, prompt:'inspect'})
