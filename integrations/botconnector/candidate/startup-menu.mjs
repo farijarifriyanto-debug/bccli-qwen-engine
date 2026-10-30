@@ -74,22 +74,19 @@ export async function startupMenu({
     providerId = selectedName(value, ids, active)
     if (!providerId) { out('Pilihan provider tidak dikenal.'); continue }
     replace = value.endsWith('!')
-    if (providerId === 'botconnector' && replace) {
-      out('Gunakan bccli-legacy login bc-cloud untuk mengubah key BotConnector lama; key tidak akan diubah dari menu ini.')
-      continue
-    }
     break
   }
-  if ((replace || !configured(providerId)) && providerId !== 'botconnector') {
+  let pendingKey
+  if (replace || !configured(providerId)) {
     out('Masukkan API key ' + PROVIDERS[providerId].name + ' (input tersembunyi).')
-    const key = await askSecret()
-    // A cancel or missing key cannot silently select an unusable provider.
-    if (!key) throw Error('Tidak ada API key; provider tidak diubah.')
-    saveKey(providerId, key)
-    out('API key disimpan terlindungi untuk akun Windows. Tidak ada request AI.')
+    pendingKey = await askSecret()
+    if (!pendingKey) throw Error('Tidak ada API key; provider tidak diubah.')
   }
-  if (!configured(providerId)) throw Error('Provider ' + providerId + ' belum memiliki API key. Tidak ada permintaan AI.')
-  const profile = resolve(providerId)
+  if (!pendingKey && !configured(providerId)) throw Error('Provider ' + providerId + ' belum memiliki API key. Tidak ada permintaan AI.')
+  // Validate before saving so a bad replacement never destroys a working key.
+  const profile = pendingKey
+    ? { id: providerId, key: pendingKey, endpoint: PROVIDERS[providerId].endpoint }
+    : resolve(providerId)
   const models = await list({ key: profile.key, endpoint: profile.endpoint })
   if (!models.length) throw Error('Tidak ada model untuk provider ini.')
   const all = [...models].sort((a, b) => a.id.localeCompare(b.id))
@@ -112,7 +109,11 @@ export async function startupMenu({
     const candidate = !value ? preferred : /^[0-9]+$/.test(value) ? filtered[Number(value) - 1]?.id : value
     if (!candidate || !all.some(m => m.id === candidate)) { out('Pilih nomor atau ID model yang tampil.'); continue }
     selectModel(all, candidate)
-    // Save active provider only after valid credentials and model are confirmed.
+    // Save only after authenticated model discovery and selection.
+    if (pendingKey) {
+      saveKey(providerId, pendingKey)
+      out('API key tersimpan terlindungi. Tidak ada permintaan chat AI.')
+    }
     use(providerId)
     saveModel(providerId, candidate)
     return { providerId, model: candidate, key: profile.key, endpoint: profile.endpoint }
