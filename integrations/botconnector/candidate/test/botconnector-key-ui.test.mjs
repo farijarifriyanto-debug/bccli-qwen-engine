@@ -112,7 +112,7 @@ test('Windows DPAPI encrypts an actual BotConnector preview credential for the c
     saveProviderKey('botconnector',secret,{root})
     const onDisk=readFileSync(join(root,'provider-botconnector.dpapi'),'utf8')
     assert.doesNotMatch(onDisk,/FAKE_TEST_ONLY_BOTCONNECTOR_KEY/)
-    assert.match(onDisk,/^[0-9a-f]+\\s*$/i)
+    assert.match(onDisk,/^[0-9a-f]+\s*$/i)
     assert.equal(storedProviderKey('botconnector',{root}),secret)
   } finally { rmSync(root,{recursive:true,force:true}) }
 })
