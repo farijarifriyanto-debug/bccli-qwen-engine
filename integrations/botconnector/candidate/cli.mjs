@@ -30,7 +30,7 @@ function help() {
     'Key entry: bccli provider add openrouter (hidden terminal prompt).',
     'Model choice: --model; BotConnector defaults to ling-3.0-flash. Other providers need --model.',
     'Security: allowlisted provider endpoints, ephemeral local token, --bare and default approvals.',
-    'MCP: explicit JSON only, directly under ~/.bccli/ (no project configs).',
+    'MCP: explicit JSON only, directly under ~/.bccli-preview/ (no project configs).',
     'Text-only -p alias; public --output-format JSON/stream-json and -r picker are not yet supported.',
     'Local new-engine RC; the public npm stable release is unchanged.',
   ].join('\n'))
@@ -57,7 +57,7 @@ async function main() {
       return 0
     }
     console.error('BotConnector credential not configured or unreadable. ' +
-      'Use the existing public "bccli login bc-cloud" or set BOTCONNECTOR_API_KEY. ' +
+      'Use the existing legacy login via "bccli-legacy login bc-cloud" or set BOTCONNECTOR_API_KEY. ' +
       'No credential was changed and no AI request was sent.')
     return 1
   }
