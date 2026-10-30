@@ -7,10 +7,10 @@
 | npm public executable | `@botconnector/bccli`, bin `bccli`, SDK `exports` | Private `@botconnector/bccli-qwen-candidate`, bin `bccli-qwen-candidate`; no SDK | **Not interchangeable** |
 | Offline version/help | `bccli -v`, `bccli --help` | `bccli-qwen-candidate -v/--version` (package version) and `--help` tested without key/network | Compatible syntax; candidate identity distinct |
 | Headless automation | `bccli -p`, `--output-format json/stream-json`, `--fail-on-tool-error` | `run "prompt"` and `-p "prompt"` text-only alias supported; JSON/stream-JSON and fail-on-tool-error still unsupported | Partial; **machine-output BREAKING** |
-| Authentication | `bccli login/logout`, provider CLI and stored provider credentials | Reads existing `bc-cloud` key or env; no candidate login/logout command | **BREAKING** |
+| Authentication | `bccli login/logout`, provider CLI and stored provider credentials | Reuses existing `bc-cloud` key or env; offline read-only `auth status` detects source without revealing the key; no candidate login/logout | Partial; **login/logout BREAKING** |
 | Model/provider selection | `/provider`, `bccli provider`, multiple cloud/local custom providers | Gateway-only (intentionally); authenticated `models`, interactive `/model` proven | Partial; local providers absent |
 | Reasoning/language | `--reasoning`, `/reasoning`, `--lang`, `/language` | Candidate launcher rejects public flags; native Qwen command equivalence unverified | **BREAKING/UNKNOWN** |
-| Session transfer | `~/.bccli`, `-c/-r`, export/import, session metadata | Separate Qwen home; native `resume` integration passed, **no migration** | **BREAKING** |
+| Session transfer | `~/.bccli`, `-c/-r`, export/import, session metadata | `-c`/`--continue` alias resumes newest candidate session in current project using Qwen home; `-r` selector, export/import and legacy session migration absent | Partial; **migration/selector BREAKING** |
 | Project instructions and hooks | Project `.bccli/config.json`, AGENTS, hooks, skills, plugins | `--bare` blocks implicit project/user discovery to prevent credential redirects; no verified safe parity | **BREAKING/UNKNOWN** |
 | Explicit MCP | `bccli mcp`, trusted project approval, MCP server integration | `--mcp-config` owner-file opt-in; mock authenticated MCP tested | Partial; management differs |
 | Security approval | Default approval, edit/secret-file constraints, CLI allow rules | Default mode; tests show edit denied without consent; test-only read_file exception | Partial; policy equivalence unverified |
@@ -44,3 +44,10 @@
 - The candidate supports offline `-v` / `--version` using its own package metadata, **not** the public BCCLI version; `--help` is also offline. Public `--output-format json/stream-json`, `-r` session selector, export/import and other flags remain unimplemented and fail safely.
 - Public-only subcommands (`login`, `provider`, `mcp`, `connect`, etc.) are rejected **before** `-p` alias rewriting or key loading; `login -p` cannot become a chargeable model prompt. A Windows cross-platform path issue in CLI smoke tests was corrected using `fileURLToPath`.
 - Changes are isolated to the candidate PR; published `bccli` and user credentials remain untouched. Do not merge or publish without full parity/migration acceptance.
+
+## 2026-10-30 read-only auth status and current-project resume
+
+- `bccli-qwen-candidate auth status`: offline credential **presence** diagnostic using the existing public BCCLI bc-cloud credential or `BOTCONNECTOR_API_KEY`. It does not validate the credential against a server, store a second key, print a token, or modify credentials. To create/change a credential continue to use public `bccli login bc-cloud`.
+- `bccli-qwen-candidate -c` / `--continue`: alias for the already tested native candidate `resume` command, constrained to **the current working directory and candidate's isolated session home**. There is deliberately no migration from public BCCLI sessions. `-r` session picker remains unsupported.
+- Explicitly reject `-c` combined with `-p`, duplicate `-c`, and mixing `-c` with named `run/models/chat/resume/auth` commands. Tests verify both option orders do not silently send chargeable prompts.
+- All new credential tests use **fake tokens and isolated temporary homes**; tests assert no secret ever appears in stdout/stderr and the original credential file remains unchanged. No real API login or paid inference is needed for these tests.
