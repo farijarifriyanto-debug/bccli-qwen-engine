@@ -9,6 +9,19 @@ import { GATEWAY } from './gateway.mjs'
 
 export { GATEWAY } from './gateway.mjs'
 export const DEFAULT_MODEL = 'ling-3.0-flash'
+
+// Qwen Code 0.26.3 Windows tool-loop exits cleanly with Node 24.22.1
+// (GitHub Actions), but repeatedly crashes on Windows Node 24.18.0
+// with libuv UV_HANDLE_CLOSING after delivering the tool result.
+// This guard affects ONLY the isolated candidate, not public BCCLI.
+export function assertCandidateRuntimeSupported({ platform = process.platform, nodeVersion = process.versions.node } = {}) {
+  const parts = /^(\d+)\.(\d+)\.(\d+)(?:$|[-+])/.exec(String(nodeVersion))
+  if (!parts) throw Error('Cannot verify the Node.js version for BCCLI candidate.')
+  const major = Number(parts[1]), minor = Number(parts[2]), patch = Number(parts[3])
+  if (platform === 'win32' && major === 24 && (minor < 22 || (minor === 22 && patch < 1))) {
+    throw Error('Windows Node.js ' + nodeVersion + ' may crash after coding tools. Use Node.js 24.22.1 or newer, or Node.js 22.23.4. Existing public BCCLI is unaffected.')
+  }
+}
 const MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/
 const ALLOWED = new Set(['models', 'run', 'chat', 'resume'])
 
