@@ -52,7 +52,3 @@ test('real Qwen reads local fixture and sends tool result to LLM with default ap
     assert.equal(fs.readFileSync(file,'utf8'),marker+'\n')
   }finally{await proxy.close();fs.rmSync(root,{recursive:true,force:true})}
 })
-
-
-
-[executed on device: home (4d540514-2dca-4de3-9149-de18305fad04)]
