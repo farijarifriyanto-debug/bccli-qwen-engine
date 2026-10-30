@@ -13,6 +13,22 @@ test('accepts only deliberately supported commands and flags', () => {
   assert.deepEqual(parseArgs(['resume', '--model', 'ling-3.0-flash', 'continue']), {command:'resume',model:'ling-3.0-flash',json:false,prompt:'continue'})
 })
 
+test('unsupported public BCCLI commands cannot turn into chargeable model prompts', () => {
+  for (const name of [
+    'login','logout','provider','mcp','connect','disconnect','integrations',
+    'update','serve','acp','plugins','gh-bot','completion','stats',
+    'export','import','pr',
+  ]) {
+    assert.throws(() => parseArgs([name]), /No AI request was sent/, name)
+    assert.throws(() => parseArgs([name, 'extra']), /No AI request was sent/, name)
+  }
+  // Explicit candidate interfaces remain valid.
+  assert.equal(parseArgs(['models']).command, 'models')
+  assert.equal(parseArgs(['run','hello']).prompt, 'hello')
+  assert.equal(parseArgs(['chat']).command, 'chat')
+  assert.equal(parseArgs(['resume']).command, 'resume')
+})
+
 test('authenticated discovery keeps endpoint and rejects redirects', async () => {
   let checked = false
   const models = await discoverModels({
