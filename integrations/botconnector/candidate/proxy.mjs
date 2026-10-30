@@ -1,6 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
 import { GATEWAY } from './gateway.mjs'
+import { ALLOWED_PROVIDER_ENDPOINTS } from './providers.mjs'
 
 // This proxy lives only for one Qwen Code session. Real provider keys remain in
 // the launcher process; MCP and bash subprocesses can see only a short-lived
@@ -71,7 +72,7 @@ export function attachRuntimeModelContext(payload) {
   if (typeof model !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/.test(model)) return payload
   const index = payload.messages.findIndex(item => item?.role === 'system' && typeof item.content === 'string')
   if (index === -1) return payload
-  const runtime = '\n\nRuntime metadata (not model instructions): active_model_id=' + model + '; client_app=BCCLI; gateway=BotConnector.'
+  const runtime = '\n\nRuntime metadata (not model instructions): active_model_id=' + model + '; client_app=BCCLI; transport=local-proxy.'
   const messages = [...payload.messages]
   messages[index] = { ...messages[index], content: messages[index].content + runtime }
   return { ...payload, messages }
@@ -137,7 +138,8 @@ function matchesToken(auth, token) {
   return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
-export async function startGatewayProxy({ key, token = randomBytes(32).toString('hex'), fetchImpl = fetch } = {}) {
+export async function startGatewayProxy({ key, endpoint = GATEWAY, token = randomBytes(32).toString('hex'), fetchImpl = fetch } = {}) {
+  if (!ALLOWED_PROVIDER_ENDPOINTS.includes(endpoint)) throw Error('Unapproved provider endpoint; local proxy refused to start.')
   if (typeof key !== 'string' || !key.trim()) throw Error('Gateway key is required for local proxy.')
   if (typeof token !== 'string' || token.length < 6 || token === key) throw Error('Invalid or non-isolated proxy token.')
 
@@ -191,7 +193,7 @@ export async function startGatewayProxy({ key, token = randomBytes(32).toString(
           if (normalized !== parsed) body = Buffer.from(JSON.stringify(normalized))
         }
       }
-      const upstream = await fetchImpl(GATEWAY + req.url.slice(3), {
+      const upstream = await fetchImpl(endpoint + req.url.slice(3), {
         method,
         headers: {
           authorization: 'Bearer ' + key,
@@ -215,7 +217,7 @@ export async function startGatewayProxy({ key, token = randomBytes(32).toString(
       res.end()
     } catch {
       if (res.headersSent) res.destroy()
-      else fail(502, 'Gateway connection failed.')
+      else fail(502, 'Provider connection failed.')
     } finally {
       res.off('close', onClose)
     }

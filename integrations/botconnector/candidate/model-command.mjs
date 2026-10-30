@@ -2,18 +2,18 @@
 // Fetches the authenticated model catalog from the existing local BotConnector
 // proxy on each invocation. Selection changes Qwen Config in the current
 // session; it never opens upstream provider settings or writes project config.
-export const BCCLI_MODEL_COMMAND = String.raw`var bccliModelLastList=[];var modelCommand={name:"model",get description(){return "Choose a BotConnector AI model in this session"},argumentHint:"[number|model-id|search WORD|page N]",kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(async(context,argumentText)=>{
+export const BCCLI_MODEL_COMMAND = String.raw`var bccliModelLastList=[];var modelCommand={name:"model",get description(){return "Choose an AI model from the active provider"},argumentHint:"[number|model-id|search WORD|page N]",kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(async(context,argumentText)=>{
   var response=(type,content)=>({type:"message",messageType:type,content});
   try{
     var base=process.env.OPENAI_BASE_URL||"";
     var key=process.env.OPENAI_API_KEY||"";
     if(!/^http:\/\/127\.0\.0\.1:[0-9]{1,5}\/v1$/.test(base)||!key){
-      return response("error","BCCLI requires the authenticated local BotConnector Gateway session.");
+      return response("error","BCCLI requires an authenticated local provider session.");
     }
     var result=await fetch(base+"/models",{method:"GET",headers:{Authorization:"Bearer "+key,Accept:"application/json"},redirect:"error",signal:AbortSignal.timeout(10000)});
-    if(!result.ok)return response("error","BotConnector model catalog is unavailable (HTTP "+result.status+"). No provider fallback.");
+    if(!result.ok)return response("error","Provider model catalog is unavailable (HTTP "+result.status+"). No provider fallback.");
     var payload=await result.json();
-    if(!Array.isArray(payload?.data))return response("error","Invalid BotConnector model catalog.");
+    if(!Array.isArray(payload?.data))return response("error","Invalid provider model catalog.");
     var catalog=new Map();
     for(var entry of payload.data){
       if(typeof entry?.id==="string" && /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/.test(entry.id) && !catalog.has(entry.id)){
@@ -21,7 +21,7 @@ export const BCCLI_MODEL_COMMAND = String.raw`var bccliModelLastList=[];var mode
       }
     }
     var all=[...catalog.values()].sort((a,b)=>a.id.localeCompare(b.id));
-    if(!all.length)return response("error","No BotConnector models available for this API key.");
+    if(!all.length)return response("error","No provider models available for this API key.");
     var text=String(context.invocation?.args||argumentText||"").trim();
     var config=context.services?.config;
     if(!config||typeof config.setModel!=="function")return response("error","BCCLI model switch is unavailable in this session.");
@@ -33,7 +33,7 @@ export const BCCLI_MODEL_COMMAND = String.raw`var bccliModelLastList=[];var mode
       if(!Number.isSafeInteger(page)||page<1||page>pages)return response("error","Invalid page. Use /model page 1 ... "+pages);
       var start=(page-1)*size;
       var rows=entries.slice(start,start+size).map((x,i)=>(start+i+1)+". "+x.id+(x.id===current?"  [ACTIVE]":""));
-      return response("info","BotConnector AI models ("+entries.length+" available; page "+page+"/"+pages+")\nActive: "+current+"\n\n"+rows.join("\n")+"\n\nUse /model NUMBER or /model MODEL_ID to switch now; /model page N; /model search KEYWORD. No upstream provider account.");
+      return response("info","Provider AI models ("+entries.length+" available; page "+page+"/"+pages+")\nActive: "+current+"\n\n"+rows.join("\n")+"\n\nUse /model NUMBER or /model MODEL_ID to switch now; /model page N; /model search KEYWORD. To change providers, use bccli-preview provider use PROVIDER before a new chat.");
     };
     if(!text)return list(all);
     var page=text.match(/^page\s+([0-9]+)$/i);
@@ -47,15 +47,15 @@ export const BCCLI_MODEL_COMMAND = String.raw`var bccliModelLastList=[];var mode
     }else if(/^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/.test(text)){
       item=catalog.get(text);
     }
-    if(!item)return response("error","That model is not available in your authenticated BotConnector catalog. Run /model to view allowed models.");
-    if(item.id===current)return response("info","Already using "+item.id+" via BotConnector Gateway.");
+    if(!item)return response("error","That model is not available in your active provider catalog. Run /model to view allowed models.");
+    if(item.id===current)return response("info","Already using "+item.id+" via the active provider.");
     // Raw model IDs are supported by Config.setModel; this preserves OpenAI
     // auth/loopback proxy instead of switching providers. It refreshes the
     // live content generator, so the next message uses the new model.
     await config.setModel(item.id,{reason:"bccli-gateway-model-picker"});
     if(config.getModel?.()!==item.id)return response("error","Model switch did not take effect; previous model preserved.");
-    return response("info","Switched to "+item.id+" in the current session. Routing and billing remain on BotConnector Gateway.");
+    return response("info","Switched to "+item.id+" in the current session. Routing and billing remain with the active provider.");
   }catch{
-    return response("error","BotConnector model selection failed; no upstream provider fallback was used.");
+    return response("error","Provider model selection failed; no upstream provider fallback was used.");
   }
 },"action")};`

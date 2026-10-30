@@ -41,7 +41,7 @@ test('help remains offline and never impersonates the public executable', () => 
 })
 
 test('unsupported public command fails before authentication and makes no AI request', () => {
-  const run = invoke(['provider','list'])
+  const run = invoke(['mcp','list'])
   assert.equal(run.status, 1)
   assert.match(run.stderr, /No AI request was sent/)
   assert.doesNotMatch(run.stderr, /BOTCONNECTOR_API_KEY is required/)

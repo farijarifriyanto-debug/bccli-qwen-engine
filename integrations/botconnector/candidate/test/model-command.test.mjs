@@ -66,6 +66,6 @@ test('fail closed for unavailable gateway, malformed models and external routing
   assert.equal((await empty.call('')).messageType,'error')
   const x=createCommand()
   x.env.OPENAI_BASE_URL='https://alibaba.example/v1'
-  assert.match((await x.call('')).content,/authenticated local BotConnector Gateway/)
+  assert.match((await x.call('')).content,/authenticated local provider session/)
   assert.equal(x.fetched.length,0)
 })

@@ -9,6 +9,7 @@ on:
     branches:
       - "botconnector/compat-poc-20261029"
       - "release/bccli-preview-v0.1.0-rc.1"
+      - "release/bccli-preview-v0.1.0-rc.2"
     paths:
       - "integrations/botconnector/**"
       - ".github/workflows/bccli-candidate.yml"
@@ -46,7 +47,7 @@ jobs:
           $pack = npm pack --ignore-scripts --dry-run --json | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $paths = @($pack[0].files | ForEach-Object { $_.path })
-          foreach ($required in @('LICENSE', 'THIRD_PARTY_NOTICES.md', 'cli.mjs', 'credentials.mjs')) {
+          foreach ($required in @('LICENSE', 'THIRD_PARTY_NOTICES.md', 'cli.mjs', 'credentials.mjs', 'providers.mjs', 'provider-cli.mjs')) {
             if ($paths -notcontains $required) { throw "Candidate npm package missing $required" }
           }
           Write-Output ("Validated package files: " + $paths.Count)

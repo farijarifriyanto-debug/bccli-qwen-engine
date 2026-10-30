@@ -63,7 +63,7 @@ test('auth status remains a read-only offline command and rejects all other oper
 
 test('unsupported public BCCLI commands cannot turn into chargeable model prompts', () => {
   for (const name of [
-    'login','logout','provider','mcp','connect','disconnect','integrations',
+    'login','logout','mcp','connect','disconnect','integrations',
     'update','serve','acp','plugins','gh-bot','completion','stats',
     'export','import','pr',
   ]) {

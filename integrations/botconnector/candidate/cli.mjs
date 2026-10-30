@@ -2,7 +2,9 @@
 import { readFileSync } from 'node:fs'
 import { DEFAULT_MODEL, assertCandidateRuntimeSupported, discoverModels, launchQwen, parseArgs, resolveQwenEntrypoint, resolveTrustedMcpConfig, selectModel } from './core.mjs'
 import { prepareBrandedQwen } from './branding.mjs'
-import { botConnectorKey, botConnectorCredentialStatus } from './credentials.mjs'
+import { botConnectorCredentialStatus } from './credentials.mjs'
+import { resolveProvider, selectedProvider, providerDefinition } from './providers.mjs'
+import { runProviderCommand } from './provider-cli.mjs'
 
 function help() {
   console.log([
@@ -16,9 +18,14 @@ function help() {
     '  bccli-preview resume [--model MODEL] [prompt]',
     '  bccli-preview -c [-m MODEL] [prompt]  (resume current project)',
     '  bccli-preview auth status  (offline; does not print API key)',
+    '  bccli-preview provider list|add|use|remove [ID]  (manage provider keys)',
+    '  bccli-preview models --provider ID  (list models for provider)',
+    '  bccli-preview chat --provider ID --model MODEL_ID',
     '',
-    'Credentials: existing bccli login (bc-cloud), or BOTCONNECTOR_API_KEY environment override.',
-    'Model choice: --model, BOTCONNECTOR_MODEL_ID, otherwise ling-3.0-flash (must exist in Gateway /models).',
+    'Credentials: existing BotConnector login or encrypted per-user provider API keys (Windows).',
+    'Provider choices: botconnector, openai, openrouter, deepseek, groq, xai.',
+    'Key entry: bccli-preview provider add openrouter (hidden terminal prompt).',
+    'Model choice: --model; BotConnector defaults to ling-3.0-flash. Other providers need --model.',
     'Security: fixed BotConnector endpoint, ephemeral local token, --bare and default approvals.',
     'MCP: explicit JSON only, directly under ~/.bccli-preview/ (no project configs).',
     'Text-only -p alias; public --output-format JSON/stream-json and -r picker are not yet supported.',
@@ -37,6 +44,7 @@ async function main() {
     return 0
   }
   const args = parseArgs(argv)
+  if (args.command === 'provider') return runProviderCommand(args.prompt.trim() ? args.prompt.trim().split(/\s+/) : [])
   if (args.command === 'auth') {
     const status = botConnectorCredentialStatus()
     if (status.configured) {
@@ -51,18 +59,23 @@ async function main() {
     return 1
   }
   if (args.command !== 'models') assertCandidateRuntimeSupported() // Avoid network/key reads before compatibility check.
-  const key = botConnectorKey()
-  const models = await discoverModels({ key })
+  const providerId = args.provider ?? selectedProvider()
+  const selected = resolveProvider(providerId)
+  const { key, endpoint } = selected
+  const models = await discoverModels({ key, endpoint })
   if (args.command === 'models') {
     if (args.json) console.log(JSON.stringify({ data: models }, null, 2))
     else models.forEach((item) => console.log(item.id))
     return 0
   }
-  const model = selectModel(models, args.model ?? process.env.BOTCONNECTOR_MODEL_ID ?? DEFAULT_MODEL)
+  const requested = args.model ?? (providerId === 'botconnector' ? (process.env.BOTCONNECTOR_MODEL_ID ?? DEFAULT_MODEL) : undefined)
+  if (!requested) throw Error('Use --model MODEL_ID for ' + providerId + '. Run bccli-preview models first.')
+  const model = selectModel(models, requested)
   if (!args.prompt && !process.stdin.isTTY) throw Error('Interactive mode requires a TTY; use run "prompt".')
   const mcpConfig = resolveTrustedMcpConfig(args.mcpConfig)
   const entrypoint = prepareBrandedQwen(resolveQwenEntrypoint())
-  return launchQwen({ key, model, prompt: args.prompt, mcpConfig, entrypoint, continueSession: args.command === 'resume' })
+  console.log('BCCLI Preview | Provider: ' + providerDefinition(providerId).name + ' | Model: ' + model)
+  return launchQwen({ key, model, prompt: args.prompt, mcpConfig, entrypoint, upstream: endpoint, providerId, continueSession: args.command === 'resume' })
 }
 
 main().then((code) => { process.exitCode = code }, (error) => {
