@@ -16,8 +16,9 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-QUFSNRKR.js': 'f52e1917c7956b02208b39982bbf7b45fb52c294418ebd93f7f2f0677c1aaa2d',
   'chunks/chunk-2PLSL3VQ.js': 'f475f043f1ab8314a64699ebb45e43026bb1a1fe65f1ac259f1898afb8a6c5d9',
   'chunks/chunk-ERV2ECV3.js': '7d2511a8317ee2c44edd2fd62b43966b9acfbfaac79175cd0cc9fb9ed42051c6',
+  'chunks/server-SJNWHHV4.js': '42ceeddc69dda95fbaac276cbd94e99432892305d169d248e760c9d94aab6eaf',
 })
-const BRAND_REVISION = 'bccli-new-20261030-brand-copy-v2'
+const BRAND_REVISION = 'bccli-new-20261030-neutral-identity-v3'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -163,6 +164,14 @@ function renameProductLanguage(text) {
 }
 
 export function patchUiChunk(file, text) {
+  if (file === 'chunks/server-SJNWHHV4.js') {
+    // An additional bundled server/agent instruction uses an upstream product
+    // identity. Neutralize only that exact clause; never invent a model name.
+    return replaceOnce(text,
+      'You are Qwen Code, a general-purpose agentic assistant',
+      'You are a general-purpose agentic assistant',
+      'server agent product identity')
+  }
   if (file === 'chunks/chunk-OYUATJK2.js') {
     const pattern = /var shortAsciiLogo=\x60[\s\S]*?\x60;/
     const matches = text.match(new RegExp(pattern.source, 'g'))

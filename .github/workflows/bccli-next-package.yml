@@ -40,7 +40,7 @@ jobs:
         run: |
           $dest = Join-Path $env:RUNNER_TEMP 'bccli-next-install'
           New-Item -ItemType Directory -Path $dest | Out-Null
-          $tarball = Join-Path (Join-Path $env:RUNNER_TEMP 'bccli-next-rc') 'botconnector-bccli-0.5.0-rc.2.tgz'
+          $tarball = Join-Path (Join-Path $env:RUNNER_TEMP 'bccli-next-rc') 'botconnector-bccli-0.5.0-rc.3.tgz'
           Push-Location $dest
           try {
             & npm install --ignore-scripts --no-audit --no-fund $tarball
@@ -52,7 +52,7 @@ jobs:
             }
             if (-not (Test-Path $command)) { throw 'Missing installed bccli executable' }
             $version = (& $command --version | Out-String).Trim()
-            if ($LASTEXITCODE -ne 0 -or $version -ne '0.5.0-rc.2') { throw "Version mismatch: $version" }
+            if ($LASTEXITCODE -ne 0 -or $version -ne '0.5.0-rc.3') { throw "Version mismatch: $version" }
             $helpText = & $command --help | Out-String
             if ($LASTEXITCODE -ne 0 -or $helpText -notmatch 'BCCLI \| BotConnector Coding Agent') { throw 'Help branding mismatch' }
             if ($helpText -match 'isolated coding agent candidate') { throw 'Legacy candidate banner is visible' }
