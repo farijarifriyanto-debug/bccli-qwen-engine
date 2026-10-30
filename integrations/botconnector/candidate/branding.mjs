@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
+import { homedir } from 'node:os'
 import { BCCLI_MODEL_COMMAND } from './model-command.mjs'
 
 const VERSION = '0.26.3'
@@ -69,7 +70,7 @@ export function guardUpstreamProviderCommands(text) {
     {
       command: 'settings',
       detect: 'dialog:"settings"',
-      code: 'var settingsCommand={name:"settings",get description(){return "View safe BCCLI settings"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(context=>({type:"message",messageType:"info",content:"BCCLI | BotConnector Settings\\nGateway: https://api.botconnector.id/v1 (fixed)\\nModel: "+(context.services?.config?.getModel?.()||"unknown")+"\\nAuth: existing bccli-legacy login (bc-cloud) or BOTCONNECTOR_API_KEY override\\nPermissions: ask before file changes and shell commands\\nUse /model to switch AI, /auth for connection help, /permissions for tool approvals, /theme to change appearance. Upstream provider and project-settings editors are disabled."}),"action")};',
+      code: 'var settingsCommand={name:"settings",get description(){return "View safe BCCLI settings"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(context=>({type:"message",messageType:"info",content:"BCCLI | BotConnector Settings\\nGateway: https://api.botconnector.id/v1 (fixed)\\nModel: "+(context.services?.config?.getModel?.()||"unknown")+"\\nAuth: bccli provider add botconnector or BOTCONNECTOR_API_KEY override\\nPermissions: ask before file changes and shell commands\\nUse /model to switch AI, /auth for connection help, /permissions for tool approvals, /theme to change appearance. Upstream provider and project-settings editors are disabled."}),"action")};',
     },
     {
       command: 'about',
@@ -318,7 +319,7 @@ export function prepareBrandedQwen(entrypoint, { cacheRoot } = {}) {
   const packageDir = dirname(entrypoint)
   // Keep the copy within the same npm dependency tree so Node resolves native
   // and bundled imports exactly as the installed upstream runtime does.
-  cacheRoot ??= join(dirname(dirname(packageDir)), '.cache', 'bccli-branded-engines')
+  cacheRoot ??= join(homedir(), '.bccli-preview', 'branded-engines')
   const patched = assertSource(packageDir)
   const outputHashes = Object.fromEntries(Object.entries(patched).map(([file, value]) => [file, digest(value)]))
   const manifest = { revision: BRAND_REVISION, version: VERSION, sourceHashes: SOURCE_HASHES, outputHashes }

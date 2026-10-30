@@ -2,8 +2,9 @@
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
-import { readFileSync, realpathSync, lstatSync } from 'node:fs'
+import { readFileSync, realpathSync, lstatSync, existsSync } from 'node:fs'
 import { dirname, join, isAbsolute } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { startGatewayProxy } from './proxy.mjs'
 import { GATEWAY } from './gateway.mjs'
 
@@ -236,6 +237,12 @@ export function resolveTrustedMcpConfig(input, { home = join(homedir(), '.bccli-
 }
 
 export function resolveQwenEntrypoint() {
+  // The preview includes an integrity-pinned Apache-2.0 engine snapshot.
+  // Keep its original source attribution; npm must not install Qwen or
+  // its optional audio-capture install hook as a dependency.
+  const bundled = fileURLToPath(new URL('./engine/cli-entry.js', import.meta.url))
+  if (existsSync(bundled)) return bundled
+  // Local source checkout still supports original dependency for tests.
   const require = createRequire(import.meta.url)
   return join(dirname(require.resolve('@qwen-code/qwen-code/package.json')), 'cli-entry.js')
 }

@@ -19,7 +19,7 @@ function help() {
     '  bccli chat [--model MODEL] [--mcp-config OWNER_CONFIG_PATH]',
     '  bccli resume [--model MODEL] [prompt]',
     '  bccli -c [-m MODEL] [prompt]  (resume latest current-project session)',
-    '  bccli -r [SESSION_UUID] [-m MODEL]  (native Qwen session picker or specific session)',
+    '  bccli -r [SESSION_UUID] [-m MODEL]  (session picker or specific session)',
     '  bccli auth status  (offline; does not print API key)',
     '  bccli provider add botconnector  (enter a new Cloud key securely)',
     '  bccli provider remove botconnector  (remove only the newly saved key)',
@@ -38,8 +38,8 @@ function help() {
     'Model choice: --model; BotConnector defaults to ling-3.0-flash. Other providers need --model.',
     'Security: allowlisted provider endpoints, ephemeral local token, --bare and default approvals.',
     'MCP: explicit JSON only, directly under ~/.bccli-preview/ (no project configs).',
-    'Text-only -p alias; public --output-format JSON/stream-json are not yet supported.',
-    'Local new-engine RC; the public npm stable release is unchanged.',
+    'JSON/stream-JSON and legacy commands use bundled stable compatibility implementation.',
+    'Preview: new interactive runtime, Apache-2.0 upstream attribution retained.',
   ].join('\n'))
 }
 
