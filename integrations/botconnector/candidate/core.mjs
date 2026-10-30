@@ -34,6 +34,11 @@ const PUBLIC_ONLY_COMMANDS = new Set([
 
 export function parseArgs(argv) {
   const args = [...argv]
+  // Check old public subcommands BEFORE rewriting -p to run: otherwise
+  // "login -p" might accidentally become a billable model prompt.
+  if (args.length && PUBLIC_ONLY_COMMANDS.has(args[0])) {
+    throw Error('Command "' + args[0] + '" is available only in public BCCLI 0.4.17, not this isolated candidate. No AI request was sent.')
+  }
   // Keep public BCCLI's common noninteractive invocation as a safe alias.
   // Do not imply parity with public JSON/stream-json or -r session picking.
   const printIndexes = args.flatMap((arg, i) => arg === '-p' || arg === '--print' ? [i] : [])
