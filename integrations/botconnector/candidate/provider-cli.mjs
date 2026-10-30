@@ -57,8 +57,7 @@ export async function runProviderCommand(words, {
   }
   providerDefinition(id)
   if (action === 'add') {
-    if (id === 'botconnector') throw Error('For BotConnector, use the existing "bccli-legacy login bc-cloud".')
-    out('Provider: ' + PROVIDERS[id].name + ' (direct API; provider billing and terms apply).')
+    out('Provider: ' + PROVIDERS[id].name + ' (API use may incur charges; entering a key does not send an AI prompt).')
     const key = await getKey()
     save(id, key)
     select(id,{env})
