@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
+import { Readable } from 'node:stream'
 import test from 'node:test'
 import { parseArgs, qwenArguments, launchQwen } from '../core.mjs'
 
@@ -28,10 +29,11 @@ test('upstream structured mode preserves endpoint and approval policy', () => {
 })
 
 test('launcher never exposes original provider key in structured mode', async () => {
-  let captured, closed = false
+  let captured, closed = false, stdoutText = ''
   const spawnImpl = (exe, args, options) => {
     captured = { exe, args, options }
     const child = new EventEmitter()
+    child.stdout = Readable.from([JSON.stringify([{type:'result',subtype:'success',session_id:'fake-session',duration_ms:4,usage:{input_tokens:2},result:'mock-reply'}])])
     queueMicrotask(() => child.emit('exit', 0, null))
     return child
   }
@@ -42,9 +44,12 @@ test('launcher never exposes original provider key in structured mode', async ()
   const exit = await launchQwen({
     key:'dummy-owner-key', model:'unit-model', prompt:'hi', outputFormat:'json',
     entrypoint:'fake-engine.js', spawnImpl, proxyFactory,
+    stdout:{write(text){stdoutText+=text;return true}},
   })
   assert.equal(exit,0)
   assert.ok(captured.args.includes('json'))
+  assert.deepEqual(captured.options.stdio,['inherit','pipe','inherit'])
+  assert.deepEqual(JSON.parse(stdoutText),{status:'ok',model:'bc-cloud/unit-model',session_id:'fake-session',usage:{input_tokens:2},duration_ms:4,result:'mock-reply'})
   assert.equal(captured.options.env.OPENAI_API_KEY,'ephemeral-only')
   assert.ok(!captured.args.includes('dummy-owner-key'))
   assert.ok(!JSON.stringify(captured.options.env).includes('dummy-owner-key'))
