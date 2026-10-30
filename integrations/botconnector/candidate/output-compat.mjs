@@ -98,7 +98,8 @@ export async function writeLegacyStructuredOutput(readable, {
   if (outputFormat === 'json') {
     const chunks = []
     let total = 0
-    for await (const chunk of readable) {
+    for await (const part of readable) {
+      const chunk = Buffer.isBuffer(part) ? part : Buffer.from(part)
       total += chunk.length
       if (total > MAX_JSON_BYTES) throw Error('Structured engine output exceeds safe limit.')
       chunks.push(chunk)
