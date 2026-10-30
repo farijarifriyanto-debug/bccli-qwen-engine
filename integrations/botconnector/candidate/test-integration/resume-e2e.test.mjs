@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import {childEnvironment,qwenArguments,resolveQwenEntrypoint} from '../core.mjs'
+import {childEnvironment,parseArgs,qwenArguments,resolveQwenEntrypoint} from '../core.mjs'
 import {startGatewayProxy} from '../proxy.mjs'
 
 const chunk=(model,delta,reason)=>'data: '+JSON.stringify({id:'mock',object:'chat.completion.chunk',created:1,model,choices:[{index:0,delta,finish_reason:reason}]})+'\n\n'
@@ -24,7 +24,10 @@ test('real Qwen resumes last project session without a second BotConnector sessi
    const env=childEnvironment({...process.env,CI:'true',NO_COLOR:'1',QWEN_CODE_MAX_OUTPUT_TOKENS:'4096'},
      proxy.token,'ling-3.0-flash',{endpoint:proxy.baseUrl,home:path.join(root,'home')})
    env.QWEN_CODE_SYSTEM_SETTINGS_PATH=path.join(root,'system.json')
-   const args=[resolveQwenEntrypoint(),...qwenArguments('ling-3.0-flash',prompt,proxy.baseUrl,{continueSession})]
+   // Use the public BCCLI -c alias for the real resume continuation,
+   // rather than bypassing the new CLI parser in this upstream E2E.
+   const parsed = continueSession ? parseArgs(['-c',prompt]) : parseArgs(['run',prompt])
+   const args=[resolveQwenEntrypoint(),...qwenArguments('ling-3.0-flash',parsed.prompt,proxy.baseUrl,{continueSession:parsed.command==='resume'})]
    return new Promise((resolve,reject)=>{
      const child=spawn(process.execPath,args,{cwd:root,env,stdio:['ignore','pipe','pipe']})
      let stdout='',stderr=''
