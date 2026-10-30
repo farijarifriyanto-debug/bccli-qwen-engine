@@ -26,6 +26,26 @@ test('public -p headless text alias preserves candidate safety and explicit mode
   assert.throws(() => parseArgs(['login','-p']), /No AI request was sent/)
 })
 
+test('public -c continues only the current project session, with no prompt-route ambiguity', () => {
+  assert.deepEqual(parseArgs(['-c']), {command:'resume', model:undefined, json:false, prompt:''})
+  assert.deepEqual(parseArgs(['--continue','-m','ling-3.0-flash','inspect']), {command:'resume', model:'ling-3.0-flash', json:false, prompt:'inspect'})
+  assert.deepEqual(parseArgs(['-m','ling-3.0-flash','-c','continue']), {command:'resume', model:'ling-3.0-flash', json:false, prompt:'continue'})
+  assert.throws(() => parseArgs(['-c','--continue']), /only once/)
+  assert.throws(() => parseArgs(['-c','-p','prompt']), /not yet supported/)
+  assert.throws(() => parseArgs(['-c','run','prompt']), /not compatible/)
+  assert.throws(() => parseArgs(['models','-c']), /not compatible/)
+  assert.throws(() => parseArgs(['resume','-c']), /not compatible/)
+  assert.equal(parseArgs(['resume','continue']).command,'resume')
+})
+
+test('auth status remains a read-only offline command and rejects all other operations', () => {
+  assert.deepEqual(parseArgs(['auth','status']), {command:'auth',model:undefined,json:false,prompt:'status'})
+  for (const argv of [['auth'],['auth','login'],['auth','logout'],['auth','status','secret'],['auth','status','--model','x']]) {
+    assert.throws(() => parseArgs(argv), /Use: auth status/)
+  }
+  assert.throws(() => parseArgs(['auth','-p','status']), /only supports a single headless run/)
+})
+
 test('unsupported public BCCLI commands cannot turn into chargeable model prompts', () => {
   for (const name of [
     'login','logout','provider','mcp','connect','disconnect','integrations',
