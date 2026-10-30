@@ -45,7 +45,8 @@ export function parseArgs(argv) {
   if (continueFlags.length > 1) throw Error('Specify -c / --continue only once.')
   if (continueFlags.length) {
     if (args.some(a => a === '-p' || a === '--print')) throw Error('Combining -c with -p is not yet supported by the candidate.')
-    if (ALLOWED.has(args[0])) throw Error('-c / --continue is not compatible with an explicit subcommand; use resume directly.')
+    const otherArgs = args.filter(a => a !== continueFlags[0])
+    if (ALLOWED.has(otherArgs[0])) throw Error('-c / --continue is not compatible with an explicit subcommand; use resume directly.')
     args.splice(args.indexOf(continueFlags[0]), 1)
     args.unshift('resume')
   }
