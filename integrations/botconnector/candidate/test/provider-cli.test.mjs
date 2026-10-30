@@ -28,6 +28,9 @@ test('provider list is informational, never returns stored API keys',async()=>{
  assert.match(text,/openrouter.*configured.*ACTIVE/)
  assert.match(text,/botconnector.*no key/)
  assert.doesNotMatch(text,/sk-or-|FAKE_PROVIDER_SECRET/)
+ assert.match(text,/bccli provider add openrouter/)
+ assert.match(text,/bccli provider use openrouter/)
+ assert.doesNotMatch(text,/bccli-preview provider/)
 })
 
 test('provider use and remove operate only with explicitly validated IDs',async()=>{
@@ -40,7 +43,7 @@ test('provider use and remove operate only with explicitly validated IDs',async(
  assert.equal(await runProviderCommand(['remove','openai'],deps),0)
  assert.deepEqual(events,['use:openai','remove:openai'])
  await assert.rejects(runProviderCommand(['add','https://evil.example'],deps),/Unknown provider/)
- await assert.rejects(runProviderCommand(['add','botconnector'],deps),/public "bccli login/)
+ await assert.rejects(runProviderCommand(['add','botconnector'],deps),/"bccli-legacy login/)
  await assert.rejects(runProviderCommand(['add','openrouter','--key','LEAKED'],deps),/Use: provider/)
  await assert.rejects(runProviderCommand(['remove'],deps),/Use: provider/)
  await assert.rejects(runProviderCommand(['use','openai','other'],deps),/Use: provider/)

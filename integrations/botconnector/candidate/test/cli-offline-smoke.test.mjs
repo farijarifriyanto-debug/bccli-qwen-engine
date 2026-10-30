@@ -35,8 +35,12 @@ test('version command is offline, silent on stderr and matches the candidate pac
 test('help remains offline and never impersonates the public executable', () => {
   const run = invoke(['--help'])
   assert.equal(run.status, 0, run.stderr)
-  assert.match(run.stdout, /bccli-preview -p/)
-  assert.match(run.stdout, /Not a replacement/)
+  assert.ok(run.stdout.includes('BCCLI | BotConnector Coding Agent'))
+  assert.match(run.stdout, /bccli -p/)
+  assert.match(run.stdout, /Local new-engine RC; the public npm stable release is unchanged/)
+  assert.ok(run.stdout.includes('~/.bccli-preview/'))
+  assert.doesNotMatch(run.stdout, /isolated coding agent candidate|bccli-preview -p/)
+  assert.ok(!run.stdout.includes('MCP: explicit JSON only, directly under ~/.bccli/'))
   assert.equal(run.stderr, '')
 })
 

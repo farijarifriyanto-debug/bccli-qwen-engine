@@ -17,7 +17,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-2PLSL3VQ.js': 'f475f043f1ab8314a64699ebb45e43026bb1a1fe65f1ac259f1898afb8a6c5d9',
   'chunks/chunk-ERV2ECV3.js': '7d2511a8317ee2c44edd2fd62b43966b9acfbfaac79175cd0cc9fb9ed42051c6',
 })
-const BRAND_REVISION = 'bccli-new-20261030-provider-modal-v1'
+const BRAND_REVISION = 'bccli-new-20261030-brand-copy-v2'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -68,12 +68,12 @@ export function guardUpstreamProviderCommands(text) {
     {
       command: 'settings',
       detect: 'dialog:"settings"',
-      code: 'var settingsCommand={name:"settings",get description(){return "View safe BCCLI settings"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(context=>({type:"message",messageType:"info",content:"BCCLI | BotConnector Settings\\nGateway: https://api.botconnector.id/v1 (fixed)\\nModel: "+(context.services?.config?.getModel?.()||"unknown")+"\\nAuth: existing bccli login (bc-cloud) or BOTCONNECTOR_API_KEY override\\nPermissions: ask before file changes and shell commands\\nUse /model to switch AI, /auth for connection help, /permissions for tool approvals, /theme to change appearance. Upstream provider and project-settings editors are disabled."}),"action")};',
+      code: 'var settingsCommand={name:"settings",get description(){return "View safe BCCLI settings"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(context=>({type:"message",messageType:"info",content:"BCCLI | BotConnector Settings\\nGateway: https://api.botconnector.id/v1 (fixed)\\nModel: "+(context.services?.config?.getModel?.()||"unknown")+"\\nAuth: existing bccli-legacy login (bc-cloud) or BOTCONNECTOR_API_KEY override\\nPermissions: ask before file changes and shell commands\\nUse /model to switch AI, /auth for connection help, /permissions for tool approvals, /theme to change appearance. Upstream provider and project-settings editors are disabled."}),"action")};',
     },
     {
       command: 'about',
       detect: 'Qwen Code v',
-      code: 'var aboutCommand={name:"status",altNames:["about"],get description(){return "Show BCCLI and BotConnector session diagnostics"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],canRunDuringStreaming:true,action:__name((context,arg)=>{const config=context.services?.config;const input=String(context.invocation?.args||arg||"").trim().toLowerCase();const message=input==="credits"?"BCCLI coding-agent runtime: based on Qwen Code 0.26.3 (Apache-2.0). Source attribution and license notices are retained in the installed runtime. Product repository: https://github.com/farijarifriyanto-debug/bccli":"BCCLI | BotConnector (candidate)\\nAI model: "+(config?.getModel?.()||"unknown")+"\\nGateway: https://api.botconnector.id/v1\\nProvider routing: managed by BotConnector\\nPermissions: default (ask)\\nSource: https://github.com/farijarifriyanto-debug/bccli\\nEngine runtime: 0.26.3\\nFor open-source engine credits use /about credits.";return{type:"message",messageType:"info",content:message}},"action")};',
+      code: 'var aboutCommand={name:"status",altNames:["about"],get description(){return "Show BCCLI and BotConnector session diagnostics"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],canRunDuringStreaming:true,action:__name((context,arg)=>{const config=context.services?.config;const input=String(context.invocation?.args||arg||"").trim().toLowerCase();const message=input==="credits"?"BCCLI coding-agent runtime: based on Qwen Code 0.26.3 (Apache-2.0). Source attribution and license notices are retained in the installed runtime. Product repository: https://github.com/farijarifriyanto-debug/bccli":"BCCLI | BotConnector\\nAI model: "+(config?.getModel?.()||"unknown")+"\\nGateway: https://api.botconnector.id/v1\\nProvider routing: managed by BotConnector\\nPermissions: default (ask)\\nSource: https://github.com/farijarifriyanto-debug/bccli\\nEngine runtime: 0.26.3\\nFor open-source engine credits use /about credits.";return{type:"message",messageType:"info",content:message}},"action")};',
     },
     {
       command: 'docs',
@@ -83,7 +83,7 @@ export function guardUpstreamProviderCommands(text) {
     {
       command: 'update',
       detect: 'Check for Qwen Code updates',
-      code: 'var updateCommand={name:"update",get description(){return "BCCLI release information"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(()=>({type:"message",messageType:"info",content:"BCCLI updates are managed by the BotConnector release channel (@botconnector/bccli). This candidate is not published; the upstream engine updater is disabled. Visit https://github.com/farijarifriyanto-debug/bccli/releases for product releases."}),"action")};',
+      code: 'var updateCommand={name:"update",get description(){return "BCCLI release information"},kind:"built-in",supportedModes:["interactive","non_interactive","acp"],action:__name(()=>({type:"message",messageType:"info",content:"BCCLI updates are managed by the BotConnector release channel (@botconnector/bccli). The upstream engine updater is disabled; use the BotConnector release channel. Visit https://github.com/farijarifriyanto-debug/bccli/releases for product releases."}),"action")};',
     },
   ]
   let result = text
@@ -183,7 +183,7 @@ export function patchUiChunk(file, text) {
     )
     result = replaceOnce(result,
       'You can resume a previous conversation by running qwen --continue or qwen --resume.',
-      'Continue your previous BCCLI session using the resume command.',
+      'Continue the latest BCCLI session in this project using bccli -c.',
       'Ink resume tip')
     result = replaceOnce(result,
       'You can run any shell commands from Qwen Code using ! (e.g. !ls).',
@@ -191,7 +191,7 @@ export function patchUiChunk(file, text) {
       'Ink terminal tip')
     result = replaceOnce(result,
       'qwen --resume ${sessionId}',
-      'BCCLI candidate resume',
+      'bccli -c',
       'Ink session-exit command')
     return renameProductLanguage(result)
   }
@@ -210,18 +210,18 @@ export function patchUiChunk(file, text) {
       'OpenTUI diagnostic label')
     result = replaceOnce(result,
       'To continue this session, run qwen --resume ${stats.sessionId}',
-      'To resume, run the BCCLI candidate resume command from this project folder',
+      'To resume the latest session in this project, run bccli -c',
       'OpenTUI project-quit resume command')
     result = replaceOnce(result,
       'qwen --resume ${sessionId}',
-      'BCCLI candidate resume',
+      'bccli -c',
       'OpenTUI transcript resume command')
     return renameProductLanguage(result)
   }
   if (file === 'chunks/chunk-QUFSNRKR.js') {
     return renameProductLanguage(replaceOnce(text,
       'children:["qwen --resume ",stats.sessionId]',
-      'children:["BCCLI candidate resume (same project)", ""]',
+      'children:["bccli -c (latest session in this project)", ""]',
       'Ink summary session-resume command'))
   }
   if (file === 'chunks/chunk-2PLSL3VQ.js') {

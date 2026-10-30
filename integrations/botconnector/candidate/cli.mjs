@@ -9,30 +9,30 @@ import { startupMenu, PROVIDER_SWITCH_EXIT } from './startup-menu.mjs'
 
 function help() {
   console.log([
-    'BCCLI | BotConnector — isolated coding agent candidate',
+    'BCCLI | BotConnector Coding Agent',
     'Usage:',
-    '  bccli-preview models [--json]',
-    '  bccli-preview run --model MODEL "prompt" [--mcp-config OWNER_CONFIG_PATH]',
-    '  bccli-preview -p "prompt" [-m MODEL]  (text-only headless alias)',
-    '  bccli-preview --version',
-    '  bccli-preview chat [--model MODEL] [--mcp-config OWNER_CONFIG_PATH]',
-    '  bccli-preview resume [--model MODEL] [prompt]',
-    '  bccli-preview -c [-m MODEL] [prompt]  (resume current project)',
-    '  bccli-preview auth status  (offline; does not print API key)',
-    '  bccli-preview provider list|add|use|remove [ID]  (manage provider keys)',
-    '  bccli-preview models --provider ID  (list models for provider)',
-    '  bccli-preview chat --provider ID --model MODEL_ID',
-    '  bccli  (new local BCCLI with interactive provider and model setup)',
+    '  bccli models [--json]',
+    '  bccli run --model MODEL "prompt" [--mcp-config OWNER_CONFIG_PATH]',
+    '  bccli -p "prompt" [-m MODEL]  (text-only headless alias)',
+    '  bccli --version',
+    '  bccli chat [--model MODEL] [--mcp-config OWNER_CONFIG_PATH]',
+    '  bccli resume [--model MODEL] [prompt]',
+    '  bccli -c [-m MODEL] [prompt]  (resume current project)',
+    '  bccli auth status  (offline; does not print API key)',
+    '  bccli provider list|add|use|remove [ID]  (manage provider keys)',
+    '  bccli models --provider ID  (list models for provider)',
+    '  bccli chat --provider ID --model MODEL_ID',
+    '  bccli  (choose a provider and model interactively)',
     '  During chat: /provider or /auth to reopen provider and key picker.',
     '',
     'Credentials: existing BotConnector login or encrypted per-user provider API keys (Windows).',
     'Provider choices: botconnector, openai, openrouter, deepseek, groq, xai.',
-    'Key entry: bccli-preview provider add openrouter (hidden terminal prompt).',
+    'Key entry: bccli provider add openrouter (hidden terminal prompt).',
     'Model choice: --model; BotConnector defaults to ling-3.0-flash. Other providers need --model.',
-    'Security: fixed BotConnector endpoint, ephemeral local token, --bare and default approvals.',
+    'Security: allowlisted provider endpoints, ephemeral local token, --bare and default approvals.',
     'MCP: explicit JSON only, directly under ~/.bccli-preview/ (no project configs).',
     'Text-only -p alias; public --output-format JSON/stream-json and -r picker are not yet supported.',
-    'Not a replacement for the currently published bccli command.',
+    'Local new-engine RC; the public npm stable release is unchanged.',
   ].join('\n'))
 }
 
@@ -57,7 +57,7 @@ async function main() {
       return 0
     }
     console.error('BotConnector credential not configured or unreadable. ' +
-      'Use the existing public "bccli login bc-cloud" or set BOTCONNECTOR_API_KEY. ' +
+      'Use the existing legacy login via "bccli-legacy login bc-cloud" or set BOTCONNECTOR_API_KEY. ' +
       'No credential was changed and no AI request was sent.')
     return 1
   }
@@ -107,6 +107,6 @@ async function main() {
 
 main().then((code) => { process.exitCode = code }, (error) => {
   // Error messages deliberately never contain credentials or raw HTTP response bodies.
-  console.error('BCCLI candidate: ' + (error instanceof Error ? error.message : 'Unexpected error.'))
+  console.error('BCCLI: ' + (error instanceof Error ? error.message : 'Unexpected error.'))
   process.exitCode = 1
 })
