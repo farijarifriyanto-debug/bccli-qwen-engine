@@ -114,7 +114,7 @@ test('upstream agent runs with locked gateway, bare mode, and default permission
   assert.ok(!args.includes('--yolo'))
   const index = args.indexOf('--append-system-prompt')
   assert.ok(index >= 0, 'runtime facts should be supplied without an AI persona')
-  assert.match(args[index + 1], /Client app: BCCLI/)
+  assert.match(args[index + 1], /Client application: BCCLI/)
   assert.match(args[index + 1], /active AI model can change in-session/)
   assert.ok(!args[index + 1].includes('active_model_id=model-1'), 'model at launch must not be frozen in system prompt')
   assert.ok(!args[index + 1].includes('You are BCCLI'))
