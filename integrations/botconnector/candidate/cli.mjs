@@ -2,8 +2,7 @@
 import { readFileSync } from 'node:fs'
 import { DEFAULT_MODEL, assertCandidateRuntimeSupported, discoverModels, launchQwen, parseArgs, resolveQwenEntrypoint, resolveTrustedMcpConfig, selectModel } from './core.mjs'
 import { prepareBrandedQwen } from './branding.mjs'
-import { botConnectorCredentialStatus } from './credentials.mjs'
-import { resolveProvider, selectedProvider, providerDefinition } from './providers.mjs'
+import { resolveProvider, selectedProvider, providerDefinition, botConnectorProviderStatus } from './providers.mjs'
 import { runProviderCommand } from './provider-cli.mjs'
 import { startupMenu, PROVIDER_SWITCH_EXIT } from './startup-menu.mjs'
 
@@ -13,7 +12,7 @@ function help() {
     'Usage:',
     '  bccli-preview models [--json]',
     '  bccli-preview run --model MODEL "prompt" [--mcp-config OWNER_CONFIG_PATH]',
-    '  bccli-preview -p "prompt" [-m MODEL]  (text-only headless alias)',
+    '  bccli-preview -p "prompt" [-m MODEL] [--output-format text|json|stream-json]',
     '  bccli-preview --version',
     '  bccli-preview chat [--model MODEL] [--mcp-config OWNER_CONFIG_PATH]',
     '  bccli-preview resume [--model MODEL] [prompt]',
@@ -27,13 +26,13 @@ function help() {
     '  bccli  (new local BCCLI with interactive provider and model setup)',
     '  During chat: /provider or /auth to reopen provider and key picker.',
     '',
-    'Credentials: existing BotConnector login or encrypted per-user provider API keys (Windows).',
+    'Credentials: BotConnector key via BCCLI menu (encrypted DPAPI on Windows); legacy login remains read-only fallback.',
     'Provider choices: botconnector, openai, openrouter, deepseek, groq, xai.',
     'Key entry: bccli-preview provider add openrouter (hidden terminal prompt).',
     'Model choice: --model; BotConnector defaults to ling-3.0-flash. Other providers need --model.',
     'Security: fixed BotConnector endpoint, ephemeral local token, --bare and default approvals.',
     'MCP: explicit JSON only, directly under ~/.bccli-preview/ (no project configs).',
-    'Headless -p remains text-only; JSON/stream-json compatibility is tracked separately.',
+    'Headless -p supports text, JSON, and stream-json output.',
     'The -r picker uses engine-native sessions under the selected provider, not legacy 0.4.17 sessions.',
     'ACP is explicit, has no stdout banner, and keeps default tool approvals.',
     'Not a replacement for the currently published bccli command.',
@@ -53,15 +52,16 @@ async function main() {
   const args = parseArgs(argv)
   if (args.command === 'provider') return runProviderCommand(args.prompt.trim() ? args.prompt.trim().split(/\s+/) : [])
   if (args.command === 'auth') {
-    const status = botConnectorCredentialStatus()
+    const status = botConnectorProviderStatus()
     if (status.configured) {
       console.log('BotConnector credential configured via ' +
-        (status.source === 'environment' ? 'BOTCONNECTOR_API_KEY environment variable.' : 'existing public BCCLI bc-cloud login.') +
+        (status.source === 'environment' ? 'BOTCONNECTOR_API_KEY environment variable.' :
+          status.source === 'encrypted-bccli' ? 'encrypted BCCLI provider storage.' : 'existing public BCCLI bc-cloud login.') +
         ' Not verified online. No AI request was sent.')
       return 0
     }
     console.error('BotConnector credential not configured or unreadable. ' +
-      'Use the existing public "bccli login bc-cloud" or set BOTCONNECTOR_API_KEY. ' +
+      'Choose BotConnector Cloud in bccli and enter an API key, or set BOTCONNECTOR_API_KEY. ' +
       'No credential was changed and no AI request was sent.')
     return 1
   }
@@ -96,10 +96,10 @@ async function main() {
   let sessionId = args.sessionId
   for (;;) {
     // ACP transports JSON-RPC on stdout; any human banner breaks protocol framing.
-    if (args.command !== 'acp') console.log('BCCLI | ' + providerDefinition(chosen.providerId).name + ' | ' + chosen.model)
+    if (args.command !== 'acp' && (!args.outputFormat || args.outputFormat === 'text')) console.log('BCCLI | ' + providerDefinition(chosen.providerId).name + ' | ' + chosen.model)
     const code = await launchQwen({
       key: chosen.key, model: chosen.model, prompt: args.prompt,
-      mcpConfig, entrypoint, upstream: chosen.endpoint,
+      mcpConfig, outputFormat: args.outputFormat, entrypoint, upstream: chosen.endpoint,
       providerId: chosen.providerId, continueSession, resumeSession, sessionId,
       acp: args.command === 'acp',
     })
