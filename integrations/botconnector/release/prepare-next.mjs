@@ -19,8 +19,8 @@ for (const arg of args) {
   }
 }
 const source = resolve(option('--source', fileURLToPath(new URL('../candidate/', import.meta.url))))
-const dest = resolve(option('--out', join(tmpdir(), 'bccli-next-0.5.0-rc.1')))
-const version = '0.5.0-rc.1'
+const dest = resolve(option('--out', join(tmpdir(), 'bccli-next-0.5.0-rc.2')))
+const version = '0.5.0-rc.2'
 const name = '@botconnector/bccli'
 if (!existsSync(join(source, 'package.json'))) throw Error('No candidate source package')
 if (existsSync(dest)) throw Error('Output already exists; refuse to overwrite a previous release candidate')
