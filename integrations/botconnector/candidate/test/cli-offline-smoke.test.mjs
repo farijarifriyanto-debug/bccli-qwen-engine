@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-const entry = new URL('../cli.mjs', import.meta.url)
+const entry = fileURLToPath(new URL('../cli.mjs', import.meta.url))
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 
 function invoke(args) {
-  return spawnSync(process.execPath, [entry.pathname, ...args], {
+  return spawnSync(process.execPath, [entry, ...args], {
     encoding: 'utf8',
     timeout: 8000,
     env: {
