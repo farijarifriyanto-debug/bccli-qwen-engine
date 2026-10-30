@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import test from 'node:test'
-import { DEFAULT_MODEL, childEnvironment, discoverModels, GATEWAY, launchQwen, parseArgs, qwenArguments, selectModel } from '../core.mjs'
+import { DEFAULT_MODEL, assertCandidateRuntimeSupported, childEnvironment, discoverModels, GATEWAY, launchQwen, parseArgs, qwenArguments, selectModel } from '../core.mjs'
 
 test('accepts only deliberately supported commands and flags', () => {
   assert.deepEqual(parseArgs(['models', '--json']), { command: 'models', model: undefined, json: true, prompt: '' })
@@ -114,4 +114,13 @@ test('Ling default is explicit and never falls back to another model', () => {
   assert.equal(selectModel([{ id: DEFAULT_MODEL }], DEFAULT_MODEL), DEFAULT_MODEL)
   assert.throws(() => selectModel([{ id: 'another-model' }], DEFAULT_MODEL), /not available/)
   assert.equal(selectModel([{ id: DEFAULT_MODEL }, { id: 'other-model' }], 'other-model'), 'other-model')
+})
+
+test('known Windows Node24 tool-loop crash versions are blocked before launch', () => {
+  assert.throws(() => assertCandidateRuntimeSupported({ platform:'win32', nodeVersion:'24.18.0' }), /24\.22\.1/)
+  assert.throws(() => assertCandidateRuntimeSupported({ platform:'win32', nodeVersion:'24.22.0' }), /24\.22\.1/)
+  assert.doesNotThrow(() => assertCandidateRuntimeSupported({ platform:'win32', nodeVersion:'24.22.1' }))
+  assert.doesNotThrow(() => assertCandidateRuntimeSupported({ platform:'win32', nodeVersion:'24.25.0' }))
+  assert.doesNotThrow(() => assertCandidateRuntimeSupported({ platform:'win32', nodeVersion:'22.23.4' }))
+  assert.doesNotThrow(() => assertCandidateRuntimeSupported({ platform:'linux', nodeVersion:'24.18.0' }))
 })
