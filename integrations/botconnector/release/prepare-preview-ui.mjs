@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 
 const rawArgs = process.argv.slice(2)
 const IS_STABLE_RELEASE = rawArgs.at(-1) === '--release'
-const VERSION = IS_STABLE_RELEASE ? '0.5.2' : '0.5.2-rc.12'
+const VERSION = IS_STABLE_RELEASE ? '0.5.3' : '0.5.3-rc.1'
 const ENGINE = '@qwen-code/qwen-code@0.26.3'
 const PINNED_ENGINE_SHA512 = 'sha512-z8dL1+N2eI1RwQm/tceJmFbxPtdin4TKpFucoau8Nl4bm/DsXsohQLFPM45t20sVzAaYg8aH8qLpX5RCIiXE3A=='
 const LEGACY = '@botconnector/bccli@0.4.17'
@@ -62,7 +62,7 @@ assert.ok(existsSync(join(extracted, 'dist', 'cli.js')))
 assert.ok(existsSync(join(extracted, 'LICENSE')))
 
 const files = [
-  'LICENSE','THIRD_PARTY_NOTICES.md','cli.mjs','core.mjs','proxy.mjs',
+  'LICENSE','THIRD_PARTY_NOTICES.md','cli.mjs','bccli-bootstrap.cjs','session-settings.mjs','core.mjs','proxy.mjs',
   'gateway.mjs','branding.mjs','credentials.mjs','model-command.mjs',
   'providers.mjs','provider-cli.mjs','startup-menu.mjs','legacy-compat.mjs', 'provider-command.mjs', 'native-key-dialog.mjs', 'provider-dialog.mjs',
   'atomic-patch.mjs', 'apply-patch-tool.mjs', 'web-search-backend.mjs', 'web-search-tool.mjs',
@@ -100,7 +100,7 @@ const pkg = {
   description: IS_STABLE_RELEASE
     ? 'BCCLI | Full coding engine and legacy SDK with verified Apache-2.0 bundled runtime'
     : 'BCCLI preview | New terminal UI with integrity-pinned Apache-2.0 engine and no @qwen-code npm dependency',
-  bin: { bccli: './cli.mjs' },
+  bin: { bccli: './bccli-bootstrap.cjs' },
   main: './legacy/dist/sdk.js',
   types: './legacy/dist/sdk.d.ts',
   exports: { '.': { types: './legacy/dist/sdk.d.ts', default: './legacy/dist/sdk.js' } },
@@ -115,6 +115,8 @@ assert.ok(!Object.keys(pkg.dependencies).some(name => name.startsWith('@qwen-cod
 delete pkg.optionalDependencies
 writeFileSync(join(dest, 'package.json'), JSON.stringify(pkg, null, 2) + '\n')
 run(process.execPath, ['--check', join(dest, 'cli.mjs')])
+run(process.execPath, ['--check', join(dest, 'bccli-bootstrap.cjs')])
+run(process.execPath, ['--check', join(dest, 'session-settings.mjs')])
 run(process.execPath, ['--check', join(dest, 'legacy-compat.mjs')])
 const result = JSON.parse(run(npm, ['pack', '--json', '--ignore-scripts', '--no-audit'], {timeout:60000}))[0]
 assert.equal(result.name, '@botconnector/bccli')
