@@ -12,7 +12,7 @@ test('native -r uses upstream Qwen session picker without introducing a custom s
   const args = qwenArguments('ling-3.0-flash', '', 'http://127.0.0.1:42001/v1', {resumeSession:select.resumeSession})
   assert.equal(args.filter(x => x === '--resume').length, 1)
   assert.equal(args.includes('--continue'), false)
-  assert.equal(args.includes('--bare'), true)
+  assert.equal(args.includes('--bare'), false)
   assert.ok(args.includes('default'))
   assert.equal(args.at(-1), '--resume')
 })

@@ -2,7 +2,7 @@
 // This runs in the parent process BEFORE the coding agent is launched; real
 // API keys never enter Qwen's process or any coding/MCP subprocess.
 import { createInterface } from 'node:readline/promises'
-import { PROVIDERS, isConfigured, resolveProvider, selectedProvider, selectedModel, saveSelectedModel, saveProviderKey, useProvider } from './providers.mjs'
+import { PROVIDERS, listProviderDefinitions, providerDefinition, isConfigured, resolveProvider, selectedProvider, selectedModel, saveSelectedModel, saveProviderKey, useProvider } from './providers.mjs'
 import { hiddenApiKey } from './provider-cli.mjs'
 import { DEFAULT_MODEL, discoverModels, selectModel } from './core.mjs'
 
@@ -57,13 +57,13 @@ export async function startupMenu({
   list = discoverModels,
   defaultModel = DEFAULT_MODEL,
 } = {}) {
-  const ids = Object.keys(PROVIDERS)
+  const ids = Object.keys(listProviderDefinitions())
   const active = currentProvider()
   out('')
   out('BCCLI  |  Provider dan model')
   out('Pilih provider. Masukkan tanda ! setelah angka untuk mengganti API key yang sudah tersimpan.')
   ids.forEach((id, idx) => {
-    out('  ' + (idx + 1) + '. ' + PROVIDERS[id].name +
+    out('  ' + (idx + 1) + '. ' + providerDefinition(id).name +
       (configured(id) ? '  [key tersedia]' : '  [perlu API key]') +
       (id === active ? '  [aktif]' : ''))
   })
@@ -78,14 +78,14 @@ export async function startupMenu({
   }
   let pendingKey
   if (replace || !configured(providerId)) {
-    out('Masukkan API key ' + PROVIDERS[providerId].name + ' (input tersembunyi).')
+    out('Masukkan API key ' + providerDefinition(providerId).name + ' (input tersembunyi).')
     pendingKey = await askSecret()
     if (!pendingKey) throw Error('Tidak ada API key; provider tidak diubah.')
   }
   if (!pendingKey && !configured(providerId)) throw Error('Provider ' + providerId + ' belum memiliki API key. Tidak ada permintaan AI.')
   // Validate before saving so a bad replacement never destroys a working key.
   const profile = pendingKey
-    ? { id: providerId, key: pendingKey, endpoint: PROVIDERS[providerId].endpoint }
+    ? { id: providerId, key: pendingKey, endpoint: providerDefinition(providerId).endpoint }
     : resolve(providerId)
   const models = await list({ key: profile.key, endpoint: profile.endpoint })
   if (!models.length) throw Error('Tidak ada model untuk provider ini.')
@@ -96,7 +96,7 @@ export async function startupMenu({
   let filtered = all
   for (;;) {
     out('')
-    out('Model ' + PROVIDERS[providerId].name + ' (' + filtered.length + ' dari ' + all.length + ' model):')
+    out('Model ' + providerDefinition(providerId).name + ' (' + filtered.length + ' dari ' + all.length + ' model):')
     filtered.slice(0, 14).forEach((m, i) => out('  ' + (i + 1) + '. ' + m.id + (m.id === preferred ? '  [default]' : '')))
     if (filtered.length > 14) out('  ... ketik ?kata untuk mencari model.')
     const value = await ask('Model (nomor/ID/?cari' + (preferred ? '/Enter = ' + preferred : '') + '): ')

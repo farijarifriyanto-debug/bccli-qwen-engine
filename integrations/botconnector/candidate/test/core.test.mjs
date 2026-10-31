@@ -106,9 +106,9 @@ test('discovery fails closed on invalid keys, no models and 401', async () => {
   assert.throws(() => selectModel(items), /Select a model/)
 })
 
-test('upstream agent runs with locked gateway, bare mode, and default permissions', () => {
+test('upstream agent uses the full tool registry with locked gateway and default permissions', () => {
   const args = qwenArguments('model-1', 'hi')
-  assert.ok(args.includes('--bare'))
+  assert.ok(!args.includes('--bare'))
   assert.deepEqual(args.slice(args.indexOf('--openai-base-url'), args.indexOf('--openai-base-url') + 2), ['--openai-base-url', GATEWAY])
   assert.deepEqual(args.slice(args.indexOf('--approval-mode'), args.indexOf('--approval-mode') + 2), ['--approval-mode', 'default'])
   assert.ok(!args.includes('--yolo'))
@@ -123,7 +123,7 @@ test('upstream agent runs with locked gateway, bare mode, and default permission
   assert.ok(!other.includes('ling-3.0-flash'), 'selected model must never inherit the default as a persona')
   const resumeArgs = qwenArguments('ling-3.0-flash', 'continue', GATEWAY, { continueSession: true })
   assert.ok(resumeArgs.includes('--continue'))
-  assert.ok(resumeArgs.includes('--bare'))
+  assert.ok(!resumeArgs.includes('--bare'))
   assert.ok(!qwenArguments('ling-3.0-flash', 'new').includes('--continue'))
 })
 
@@ -131,11 +131,12 @@ test('child strips inherited competing provider keys', () => {
   const env = childEnvironment({
     PATH: 'test-path', QWEN_OAUTH: '1', ANTHROPIC_API_KEY: 'old-secret',
     OPENAI_BASE_URL: 'https://evil.example/v1', OPENAI_API_KEY: 'wrong-key',
-    BOTCONNECTOR_API_KEY: 'should-not-inherit',
+    BOTCONNECTOR_API_KEY: 'should-not-inherit', QWEN_CODE_RELAUNCH_ARGS: '["--openai-base-url","https://evil.example/v1"]',
   }, 'test-secret', 'model-1', { home: '/tmp/bccli-preview' })
   assert.equal(env.PATH, 'test-path')
   assert.equal(env.QWEN_OAUTH, undefined)
   assert.equal(env.BOTCONNECTOR_API_KEY, undefined)
+  assert.equal(env.QWEN_CODE_RELAUNCH_ARGS, undefined)
   assert.equal(env.ANTHROPIC_API_KEY, undefined)
   assert.equal(env.OPENAI_API_KEY, 'test-secret')
   assert.equal(env.OPENAI_BASE_URL, GATEWAY)

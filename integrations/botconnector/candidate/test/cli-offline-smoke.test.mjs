@@ -39,7 +39,7 @@ test('help remains offline and never impersonates the public executable', () => 
   assert.match(run.stdout, /bccli -p/)
   assert.match(run.stdout, /bccli --choose/)
   assert.match(run.stdout, /open chat directly with active provider and last model/)
-  assert.match(run.stdout, /Local new-engine RC; the public npm stable release is unchanged/)
+  assert.match(run.stdout, /Preview: new interactive runtime, Apache-2.0 upstream attribution retained/)
   assert.ok(run.stdout.includes('~/.bccli-preview/'))
   assert.doesNotMatch(run.stdout, /isolated coding agent candidate|bccli-preview -p/)
   assert.ok(!run.stdout.includes('MCP: explicit JSON only, directly under ~/.bccli/'))

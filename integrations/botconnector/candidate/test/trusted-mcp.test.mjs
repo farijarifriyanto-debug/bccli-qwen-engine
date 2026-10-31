@@ -25,7 +25,7 @@ test('MCP remains explicitly opt-in and uses only owner config directory', () =>
     const parsed = parseArgs(['run', '--model', 'bc-poc-model', '--mcp-config', good, 'hello'])
     assert.equal(parsed.mcpConfig, good)
     const args = qwenArguments('bc-poc-model', parsed.prompt, 'http://127.0.0.1:40000/v1', { mcpConfig: good })
-    assert.ok(args.includes('--bare'))
+    assert.ok(!args.includes('--bare'))
     assert.deepEqual(args.slice(args.indexOf('--mcp-config'), args.indexOf('--mcp-config') + 2), ['--mcp-config', good])
   } finally { fs.rmSync(root, { recursive: true, force: true }) }
 })

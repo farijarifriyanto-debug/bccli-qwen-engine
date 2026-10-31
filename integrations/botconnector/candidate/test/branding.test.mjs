@@ -15,17 +15,22 @@ test('white-label patch changes only the ASCII logo with strict locator', () => 
 test('Ink and OpenTUI titles update without modifying non-brand fields', () => {
   const session = String.fromCharCode(36) + '{sessionId}'
   const statsSession = String.fromCharCode(36) + '{stats.sessionId}'
-  const ink = 'prefix customBannerTitle?customBannerTitle:">_ Qwen Code" Add a QWEN.md file to give Qwen Code persistent project context. You can resume a previous conversation by running qwen --continue or qwen --resume. You can run any shell commands from Qwen Code using ! (e.g. !ls). qwen --resume ' + session + ' suffix'
+  const ink = 'prefix customBannerTitle?customBannerTitle:">_ Qwen Code" Add a QWEN.md file to give Qwen Code persistent project context. You can resume a previous conversation by running qwen --continue or qwen --resume. You can run any shell commands from Qwen Code using ! (e.g. !ls). qwen --resume ' + session + ' suffix' + ' settings.merged.ui?.useTerminalBuffer settings.merged.ui?.useTerminalBuffer settings.merged.ui?.useTerminalBuffer'
   const result = patchUiChunk('chunks/startInteractiveUI-CECFAXVK.js', ink)
   assert.match(result, />_ BCCLI \| BotConnector/)
   assert.match(result, /Use \/help to explore BCCLI/)
   assert.match(result, /Continue the latest BCCLI session in this project using bccli -c/)
   assert.ok(!result.includes('Qwen Code'))
-  const openTuiBefore = 'custom.title??">_ Qwen Code";var DEFAULT_GRADIENT=["#4796E4","#847ACE","#C3677F"];addField("Qwen Code",cliVersion' + ' To continue this session, run qwen --resume ' + statsSession + ' qwen --resume ' + session
+  assert.equal((result.match(/BCCLI_ENABLE_APP_MOUSE/g)||[]).length,3)
+  const openTuiBefore = 'custom.title??">_ Qwen Code";var DEFAULT_GRADIENT=["#4796E4","#847ACE","#C3677F"];addField("Qwen Code",cliVersion' + ' To continue this session, run qwen --resume ' + statsSession + ' qwen --resume ' + session + ' useMouse:settings.merged.ui?.mouseTracking!==false mouseTracking:settings.merged.ui?.mouseTracking!==false'
   const openTuiAfter = patchUiChunk('chunks/start-opentui-ui-Q34XCEMN.js', openTuiBefore)
   assert.ok(openTuiAfter.includes('custom.title??">_ BCCLI | BotConnector"'))
   assert.ok(openTuiAfter.includes('var DEFAULT_GRADIENT=["#00AFA0","#22C55E","#EAB308"]'))
   assert.ok(openTuiAfter.includes('addField("BCCLI engine",cliVersion'))
+  assert.match(openTuiAfter, /screenMode:process.platform==="win32"/)
+  assert.match(openTuiAfter, /useMouse:process.platform==="win32"/)
+  assert.match(openTuiAfter, /mouseTracking:process.platform==="win32"/)
+  assert.match(openTuiAfter, /BCCLI_ENABLE_APP_MOUSE/)
   assert.ok(!openTuiAfter.includes('qwen --resume'))
   assert.ok(openTuiAfter.includes('To resume the latest session in this project, run bccli -c'))
   assert.ok(result.includes('bccli -c'))

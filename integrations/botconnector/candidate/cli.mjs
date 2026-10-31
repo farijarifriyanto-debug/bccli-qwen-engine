@@ -19,7 +19,7 @@ function help() {
     '  bccli chat [--model MODEL] [--mcp-config OWNER_CONFIG_PATH]',
     '  bccli resume [--model MODEL] [prompt]',
     '  bccli -c [-m MODEL] [prompt]  (resume latest current-project session)',
-    '  bccli -r [SESSION_UUID] [-m MODEL]  (native Qwen session picker or specific session)',
+    '  bccli -r [SESSION_UUID] [-m MODEL]  (session picker or specific session)',
     '  bccli auth status  (offline; does not print API key)',
     '  bccli provider add botconnector  (enter a new Cloud key securely)',
     '  bccli provider remove botconnector  (remove only the newly saved key)',
@@ -30,16 +30,17 @@ function help() {
     '  bccli chat --provider ID --model MODEL_ID',
     '  bccli  (open chat directly with active provider and last model)',
     '  bccli --choose  (open provider/model picker explicitly)',
-    '  During chat: /provider or /auth to reopen provider and key picker.',
+    '  During chat: /provider (menu), /provider add NAME, /provider remove NAME, /provider NAME MODEL_ID.',
     '',
     'Credentials: hidden in-terminal input; Windows DPAPI encrypted per-user storage, or existing login/env.',
     'Provider choices: botconnector, openai, openrouter, deepseek, groq, xai.',
     'Key entry: bccli --choose or bccli provider add botconnector (hidden terminal prompt).',
     'Model choice: --model; BotConnector defaults to ling-3.0-flash. Other providers need --model.',
-    'Security: allowlisted provider endpoints, ephemeral local token, --bare and default approvals.',
-    'MCP: explicit JSON only, directly under ~/.bccli-preview/ (no project configs).',
-    'Text-only -p alias; public --output-format JSON/stream-json are not yet supported.',
-    'Local new-engine RC; the public npm stable release is unchanged.',
+    'Security: allowlisted provider endpoints, ephemeral local session token, full upstream tools and default approvals.',
+    'MCP: --mcp-config accepts owner-controlled JSON directly under ~/.bccli-preview/; upstream project integrations use workspace trust and approval.',
+    'JSON/stream-JSON and legacy commands use bundled stable compatibility implementation.',
+    'Optional web_search: set BRAVE_SEARCH_API_KEY in parent BCCLI environment; the search key stays out of the coding engine.',
+    'Preview: new interactive runtime, Apache-2.0 upstream attribution retained.',
   ].join('\n'))
 }
 
@@ -112,8 +113,8 @@ async function main() {
     })
     if (code !== PROVIDER_SWITCH_EXIT) return code
     if (args.prompt || !process.stdin.isTTY) throw Error('Provider menu requires an interactive terminal.')
-    // /provider and /auth close the current engine cleanly, then the parent
-    // asks for a key and model. Keys never enter the Qwen agent process.
+    // Older cached engine fallback only. Current /provider switches the live
+    // parent proxy and model Config without exiting or exposing API keys.
     resumeSession = undefined // Native picker is used only on the first launch.
     const previousProvider = chosen.providerId
     chosen = await startupMenu()
