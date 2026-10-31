@@ -23,7 +23,7 @@ const final=(model,text)=>response(model,{role:'assistant',content:text},'stop')
 test('full BCCLI discovers provider-neutral web_search and uses parent-only search key', {timeout:90000},async()=>{
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'bccli-web-search-'))
   let used=0,hasSchema=false,hasCitedReply=false
-  let searched=false,invoked=false
+  let invoked=false
   let lastReply=''
   const fakeSearchKey='SEARCH_SECRET_NEVER_EXPOSED'
   const proxy=await startGatewayProxy({
@@ -44,8 +44,7 @@ test('full BCCLI discovers provider-neutral web_search and uses parent-only sear
       assert.doesNotMatch(JSON.stringify(body),/SEARCH_SECRET_NEVER_EXPOSED|MODEL_SECRET_NEVER_EXPOSED/)
       hasSchema||=replies.includes('parametersJsonSchema')
       hasCitedReply||=replies.includes('https://docs.example.org/guide')
-      if(names.includes('tool_search')&&!searched){searched=true;return call(model,'tool_search',{query:'select:web_search'})}
-      if(names.includes('tool_search')&&!invoked){invoked=true;return call(model,'tool_call',{name:'web_search',arguments:{query:'BCCLI source reference'}})}
+      if(names.includes('web_search')&&!invoked){invoked=true;return call(model,'web_search',{query:'BCCLI source reference'})}
       return final(model,'BCCLI_WEB_SEARCH_E2E_PASS')
     }
   })
@@ -67,10 +66,9 @@ test('full BCCLI discovers provider-neutral web_search and uses parent-only sear
       child.once('close',code=>{clearTimeout(timeout);resolve({code,out,err})})
     })
     assert.equal(result.code,0,result.err.slice(-450))
-    assert.equal(searched,true,'tool_search called')
-    assert.equal(invoked,true,'tool_call called')
+    assert.equal(invoked,true,'web_search tool advertised directly and invoked')
     assert.equal(used,1,'one authorized search with parent key; diagnostic '+JSON.stringify({lastReply,out:result.out.slice(-500),err:result.err.slice(-500)}))
-    assert.equal(hasSchema,true,'tool_search exposes web_search schema')
+    assert.equal(hasSchema,false,'direct web_search does not require deferred schema lookup')
     assert.equal(hasCitedReply,true,'search result URL forwarded to model')
     assert.match(result.out,/BCCLI_WEB_SEARCH_E2E_PASS/)
   }finally{await proxy.close();fs.rmSync(root,{recursive:true,force:true})}
