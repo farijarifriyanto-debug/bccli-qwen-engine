@@ -118,3 +118,19 @@ test('a rejected parent switch rolls back active model (never routes silently)',
     assert.equal((await list.json()).active, 'botconnector')
   } finally { await proxy.close() }
 })
+
+test('OpenTUI keeps provider management in the BCCLI text flow, never the upstream dialog', async () => {
+  const f = fixture()
+  const proxy = await startGatewayProxy(f.proxyOptions)
+  try {
+    const x = slash(proxy)
+    x.env.QWEN_TUI_RENDERER = 'opentui'
+    const menu = await x.call('')
+    assert.equal(menu.type, 'message')
+    assert.match(menu.content, /BCCLI providers/)
+    const provider = await x.call('openai')
+    assert.equal(provider.type, 'message')
+    assert.match(provider.content, /Models for openai/)
+    assert.ok(!JSON.stringify([menu, provider]).includes('"dialog"'))
+  } finally { await proxy.close() }
+})

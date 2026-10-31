@@ -7,11 +7,26 @@ import { dirname, join, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { startGatewayProxy } from './proxy.mjs'
 import { GATEWAY } from './gateway.mjs'
-import { listProviderDefinitions } from './providers.mjs'
+import { listProviderDefinitions, providerRoot } from './providers.mjs'
 import { ensureIsolatedSessionSettings } from './session-settings.mjs'
+import { syncDialogModelCatalog } from './dialog-models.mjs'
 
 export { GATEWAY } from './gateway.mjs'
 export const DEFAULT_MODEL = 'ling-3.0-flash'
+
+// One engine home per provider keeps /model persistence provider-scoped.
+// BCCLI_PREVIEW_HOME (already the owner config/key root) also relocates the
+// engine home so isolated runs and tests never write to the real user profile.
+export function sessionHome(providerId, env = process.env) {
+  const override = typeof env.BCCLI_PREVIEW_HOME === 'string' ? env.BCCLI_PREVIEW_HOME.trim() : ''
+  if (override) {
+    if (!isAbsolute(override)) throw Error('BCCLI_PREVIEW_HOME must be absolute.')
+    return providerId === 'botconnector' ? override : join(override, 'sessions-' + providerId)
+  }
+  return providerId === 'botconnector'
+    ? join(homedir(), '.bccli-preview')
+    : join(homedir(), '.bccli-preview', 'sessions-' + providerId)
+}
 
 // Qwen Code 0.26.3 Windows tool-loop exits cleanly with Node 24.22.1
 // (GitHub Actions), but repeatedly crashes on Windows Node 24.18.0
@@ -210,7 +225,7 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home, p
   env.OPENAI_BASE_URL = endpoint
   env.OPENAI_MODEL = model
   env.QWEN_MODEL = model
-  env.QWEN_HOME = home ?? (providerId === 'botconnector' ? join(homedir(), '.bccli-preview') : join(homedir(), '.bccli-preview', 'sessions-' + providerId))
+  env.QWEN_HOME = home ?? sessionHome(providerId, env)
   env.BCCLI_ACTIVE_PROVIDER = providerId
   env.BCCLI_WEB_SEARCH_AVAILABLE = searchAvailable ? '1' : '0'
   env.CLI_TITLE = 'BCCLI - ' + process.cwd().split(/[\\/]/).filter(Boolean).at(-1)
@@ -220,8 +235,9 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home, p
 
 // Explicit MCP servers run local commands on startup, so they must originate
 // from a config file the user deliberately placed outside any cloned project.
-// Full engine auto-discovery is subject to upstream workspace trust.
-export function resolveTrustedMcpConfig(input, { home = join(homedir(), '.bccli-preview') } = {}) {
+// Full engine auto-discovery is subject to upstream workspace trust. The owner
+// config root follows BCCLI_PREVIEW_HOME so an isolated home is fully isolated.
+export function resolveTrustedMcpConfig(input, { home = providerRoot() } = {}) {
   if (!input) return undefined
   if (!isAbsolute(input)) throw Error('MCP config must use an absolute path.')
   let realHome, file, stats
@@ -260,7 +276,7 @@ export function resolveQwenEntrypoint() {
   return join(dirname(require.resolve('@qwen-code/qwen-code/package.json')), 'cli-entry.js')
 }
 
-export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, resumeSession, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
+export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, resumeSession, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy, catalog }) {
   // The real API key never enters Qwen, its tools, or any MCP child process.
   // Only this launcher retains it while the ephemeral proxy is running.
   const searchApiKey = env.BRAVE_SEARCH_API_KEY
@@ -269,6 +285,17 @@ export async function launchQwen({ key, model, prompt, mcpConfig, continueSessio
     const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, resumeSession, projectDir: process.cwd() })]
     const childEnv = childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl, providerId, searchAvailable: Boolean(searchApiKey?.trim()) })
     ensureIsolatedSessionSettings(childEnv.QWEN_HOME)
+    // The upstream /model picker needs the catalog in modelProviders; without
+    // it the dialog only knows the single OPENAI_MODEL route. Never block a
+    // launch on catalog failure: chat still works with the startup model.
+    if (proxyFactory === startGatewayProxy) {
+      try {
+        const dialogCatalog = catalog ?? await discoverModels({ key, endpoint: upstream })
+        syncDialogModelCatalog(childEnv.QWEN_HOME, { models: dialogCatalog, baseUrl: proxy.baseUrl })
+      } catch (error) {
+        if (env.BCCLI_DEBUG) console.error('BCCLI: model picker catalog unavailable: ' + (error instanceof Error ? error.message : 'unknown'))
+      }
+    }
     const child = spawnImpl(process.execPath, args, {
       cwd: process.cwd(), env: childEnv,
       stdio: 'inherit', windowsHide: false, shell: false,

@@ -21,12 +21,18 @@ export const BCCLI_PROVIDER_COMMAND = String.raw`var authCommand={name:"provider
     if(!Array.isArray(data?.providers))return response("error","Provider list unavailable.");
     var providers=data.providers;
     var current=data.active||"(unknown)";
+    // OpenTUI renders the upstream AuthDialog for dialog:"auth", which would
+    // expose provider settings BCCLI does not own. Keep the same gateway-owned
+    // text flow there instead of opening that dialog.
+    var openTui=process.env.QWEN_TUI_RENDERER==="opentui";
+    var listText=()=>"BCCLI providers — active: "+current+"\n\n"+providers.map((p,i)=>(i+1)+". "+p.id+" — "+p.name+(p.active?" [ACTIVE]":"")+(p.configured?" [configured]":" [API key required]")).join("\n")+"\n\nChoose: /provider NUMBER or /provider NAME\nSave/replace key: /provider add NAME\nDelete saved key: /provider remove NAME\nSelect AI: /provider NAME MODEL_ID\nKeys open a hidden Windows dialog; NEVER paste keys into chat.";
     if(!params.length){
+      if(openTui)return response("info",listText());
       delete process.env.BCCLI_PROVIDER_PICKER_FOCUS;
       return {type:"dialog",dialog:"auth"};
     }
     if(params[0]==="list"){
-      return response("info","BCCLI providers — active: "+current+"\n\n"+providers.map((p,i)=>(i+1)+". "+p.id+" — "+p.name+(p.active?" [ACTIVE]":"")+(p.configured?" [configured]":" [API key required]")).join("\n")+"\n\nChoose: /provider NUMBER or /provider NAME\nSave/replace key: /provider add NAME\nDelete saved key: /provider remove NAME\nSelect AI: /provider NAME MODEL_ID\nKeys open a hidden Windows dialog; NEVER paste keys into chat.");
+      return response("info",listText());
     }
     if(params.length===1&&params[0].toLowerCase()==="add"){
       const created=await request("/bccli/provider/custom/add",{method:"POST",timeoutMs:190000,
@@ -53,7 +59,7 @@ export const BCCLI_PROVIDER_COMMAND = String.raw`var authCommand={name:"provider
       return response("error","The key operation was not confirmed.");
     }
     var id=/^[0-9]+$/.test(params[0])?providers[Number(params[0])-1]?.id:params[0].toLowerCase();
-    if(params.length===1&&providers.some(p=>p.id===id)){
+    if(params.length===1&&providers.some(p=>p.id===id)&&!openTui){
       process.env.BCCLI_PROVIDER_PICKER_FOCUS=id;
       return {type:"dialog",dialog:"auth"};
     }

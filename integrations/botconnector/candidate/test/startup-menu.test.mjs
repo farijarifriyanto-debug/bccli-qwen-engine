@@ -141,9 +141,32 @@ test('explicit BotConnector model environment preference wins over stored model 
   const selected=await autoSelectStartup({
     providerId:'botconnector',configured:()=>true,
     remembered:()=> 'ling-3.0-flash',
+    dialogModel:()=> 'picker-choice',
     resolve:()=>({key:'FAKE_KEY',endpoint:'https://api.botconnector.id/v1'}),
-    list:async()=>[{id:'ling-3.0-flash'},{id:'requested-live'}],
+    list:async()=>[{id:'ling-3.0-flash'},{id:'requested-live'},{id:'picker-choice'}],
     env:{BOTCONNECTOR_MODEL_ID:'requested-live'},
   })
   assert.equal(selected.model,'requested-live')
+})
+
+test('model chosen in the upstream picker is remembered across launches', async () => {
+  const fromPicker=await autoSelectStartup({
+    providerId:'openai',configured:()=>true,
+    remembered:()=> 'old-saved-model',
+    dialogModel:()=> 'picker-choice',
+    resolve:()=>({key:'FAKE_KEY',endpoint:'https://api.openai.com/v1'}),
+    list:async()=>[{id:'old-saved-model'},{id:'picker-choice'}],
+    env:{},
+  })
+  assert.equal(fromPicker.model,'picker-choice')
+
+  const stale=await autoSelectStartup({
+    providerId:'openai',configured:()=>true,
+    remembered:()=> 'old-saved-model',
+    dialogModel:()=> 'retired-picker-model',
+    resolve:()=>({key:'FAKE_KEY',endpoint:'https://api.openai.com/v1'}),
+    list:async()=>[{id:'old-saved-model'}],
+    env:{},
+  })
+  assert.equal(stale.model,'old-saved-model')
 })

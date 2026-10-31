@@ -5,7 +5,6 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, r
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { homedir } from 'node:os'
-import { BCCLI_MODEL_COMMAND } from './model-command.mjs'
 import { BCCLI_PROVIDER_COMMAND } from './provider-command.mjs'
 import { BCCLI_PROVIDER_DIALOG } from './provider-dialog.mjs'
 
@@ -33,7 +32,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-B3ZFUGTC.js': 'f3f57aafbaeab56ca58f5d3173751d30e5fef815aeaf8dc9b46e6ea9e85eb528',
   'chunks/chunk-GGVWG4SI.js': '945c7f4e9b3697003c165b7bc5d007c9b87140d1fad7be084d7b253d8d2b476c',
 })
-const BRAND_REVISION = 'bccli-20261031-win-bootstrap-session-v15'
+const BRAND_REVISION = 'bccli-20261031-opentui-provider-fallback-v17'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -66,20 +65,17 @@ function replaceOnce(text, oldValue, newValue, label) {
 
 
 // Embedded slash commands are part of the upstream renderer bundle. BCCLI's
-// Gateway owns authentication, model eligibility and release management, so
-// those commands must not open arbitrary upstream provider settings or invoke
-// the upstream npm / standalone auto-updater.
+// Gateway owns authentication and release management, so those commands must
+// not open arbitrary upstream provider settings or invoke the upstream npm /
+// standalone auto-updater. /model intentionally stays upstream-owned: the
+// interactive picker is fed by the gateway catalog that BCCLI writes into the
+// session's modelProviders (see dialog-models.mjs).
 export function guardUpstreamProviderCommands(text) {
   const replacements = [
     {
       command: 'auth',
       detect: 'dialog:"auth"',
       code: BCCLI_PROVIDER_COMMAND,
-    },
-    {
-      command: 'model',
-      detect: 'dialog:"model"',
-      code: BCCLI_MODEL_COMMAND,
     },
     {
       command: 'settings',

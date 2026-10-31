@@ -14,19 +14,24 @@ export async function autoSelectStartup({
   providerId = selectedProvider(),
   configured = isConfigured,
   remembered = selectedModel,
+  dialogModel = () => undefined,
   resolve = resolveProvider,
   list = discoverModels,
   defaultModel = DEFAULT_MODEL,
   env = process.env,
 } = {}) {
   if (!configured(providerId)) return undefined
-  const requested = providerId === 'botconnector'
-    ? (env.BOTCONNECTOR_MODEL_ID || remembered(providerId) || defaultModel)
-    : remembered(providerId)
-  if (!requested) return undefined
+  // A model chosen in the upstream /model picker is persisted in the engine's
+  // per-provider settings; it wins over the older active-model file, but only
+  // when the live catalog still offers it.
+  const candidates = providerId === 'botconnector'
+    ? [env.BOTCONNECTOR_MODEL_ID, dialogModel(providerId), remembered(providerId), defaultModel]
+    : [dialogModel(providerId), remembered(providerId)]
+  if (!candidates.some(Boolean)) return undefined
   const profile = resolve(providerId)
   const models = await list({ key: profile.key, endpoint: profile.endpoint })
-  if (!models.some(item => item.id === requested)) return undefined
+  const requested = candidates.find(id => id && models.some(item => item.id === id))
+  if (!requested) return undefined
   return { providerId, model: selectModel(models, requested), key: profile.key, endpoint: profile.endpoint }
 }
 
@@ -52,6 +57,7 @@ export async function startupMenu({
   saveKey = saveProviderKey,
   use = useProvider,
   remembered = selectedModel,
+  dialogModel = () => undefined,
   saveModel = saveSelectedModel,
   resolve = resolveProvider,
   list = discoverModels,
@@ -90,7 +96,7 @@ export async function startupMenu({
   const models = await list({ key: profile.key, endpoint: profile.endpoint })
   if (!models.length) throw Error('Tidak ada model untuk provider ini.')
   const all = [...models].sort((a, b) => a.id.localeCompare(b.id))
-  const previous = remembered(providerId)
+  const previous = dialogModel(providerId) ?? remembered(providerId)
   const preferred = all.some(m => m.id === previous) ? previous :
     providerId === 'botconnector' && all.some(m => m.id === defaultModel) ? defaultModel : undefined
   let filtered = all

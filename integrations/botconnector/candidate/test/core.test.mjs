@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
-import { DEFAULT_MODEL, assertCandidateRuntimeSupported, childEnvironment, discoverModels, GATEWAY, launchQwen, parseArgs, qwenArguments, selectModel } from '../core.mjs'
+import { DEFAULT_MODEL, assertCandidateRuntimeSupported, childEnvironment, discoverModels, GATEWAY, launchQwen, parseArgs, qwenArguments, resolveTrustedMcpConfig, selectModel, sessionHome } from '../core.mjs'
 
 test('accepts only deliberately supported commands and flags', () => {
   assert.deepEqual(parseArgs(['models', '--json']), { command: 'models', model: undefined, json: true, prompt: '' })
@@ -201,4 +204,27 @@ test('identity metadata separates BCCLI client, upstream engine and live AI with
   assert.doesNotMatch(prompt, /You are BCCLI|You are Qwen Code|developed by BICO/)
   assert.doesNotMatch(prompt, /ling-3\.0-flash|test-switchable-model/)
   assert.equal(args[args.indexOf('--model') + 1], 'test-switchable-model')
+})
+
+test('BCCLI_PREVIEW_HOME relocates the engine home instead of touching the user profile', () => {
+  const root = join(tmpdir(), 'bccli-session-home')
+  assert.equal(sessionHome('botconnector', { BCCLI_PREVIEW_HOME: root }), root)
+  assert.equal(sessionHome('deepseek', { BCCLI_PREVIEW_HOME: root }), join(root, 'sessions-deepseek'))
+  assert.throws(() => sessionHome('openai', { BCCLI_PREVIEW_HOME: 'relative/path' }), /must be absolute/)
+  assert.ok(sessionHome('deepseek', {}).endsWith(join('.bccli-preview', 'sessions-deepseek')))
+})
+
+test('explicit MCP config root follows BCCLI_PREVIEW_HOME', () => {
+  const root = mkdtempSync(join(tmpdir(), 'bccli-mcp-root-'))
+  const file = join(root, 'mcp.json')
+  const saved = process.env.BCCLI_PREVIEW_HOME
+  try {
+    writeFileSync(file, JSON.stringify({ mcpServers: { memory: { command: 'node' } } }) + '\n')
+    process.env.BCCLI_PREVIEW_HOME = root
+    assert.equal(resolveTrustedMcpConfig(file), realpathSync(file))
+  } finally {
+    if (saved === undefined) delete process.env.BCCLI_PREVIEW_HOME
+    else process.env.BCCLI_PREVIEW_HOME = saved
+    rmSync(root, { recursive: true, force: true })
+  }
 })

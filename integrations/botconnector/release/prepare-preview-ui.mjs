@@ -63,7 +63,7 @@ assert.ok(existsSync(join(extracted, 'LICENSE')))
 
 const files = [
   'LICENSE','THIRD_PARTY_NOTICES.md','cli.mjs','bccli-bootstrap.cjs','session-settings.mjs','core.mjs','proxy.mjs',
-  'gateway.mjs','branding.mjs','credentials.mjs','model-command.mjs',
+  'gateway.mjs','branding.mjs','credentials.mjs','dialog-models.mjs',
   'providers.mjs','provider-cli.mjs','startup-menu.mjs','legacy-compat.mjs', 'provider-command.mjs', 'native-key-dialog.mjs', 'provider-dialog.mjs',
   'atomic-patch.mjs', 'apply-patch-tool.mjs', 'web-search-backend.mjs', 'web-search-tool.mjs',
 ]
