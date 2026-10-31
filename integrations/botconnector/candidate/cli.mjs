@@ -12,7 +12,7 @@ import { legacyCompatibilityMode, runLegacyCli } from './legacy-compat.mjs'
 // An unreadable or unsafe settings file must not block startup; the picker
 // simply falls back to the legacy active-model record.
 function dialogModel(providerId) {
-  try { return readDialogSelectedModel(sessionHome(providerId)) } catch { return undefined }
+  try { return readDialogSelectedModel(sessionHome(providerId, process.env)) } catch { return undefined }
 }
 
 function help() {
