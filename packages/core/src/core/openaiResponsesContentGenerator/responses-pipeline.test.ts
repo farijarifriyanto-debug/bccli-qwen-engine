@@ -1727,6 +1727,54 @@ describe('ResponsesPipeline', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    const reasoningParameterBody = JSON.stringify({
+      error: {
+        type: 'invalid_request_error',
+        param: 'reasoning',
+        message: "Unknown parameter: 'reasoning'.",
+      },
+    });
+
+    it('recovers once when the endpoint rejects the reasoning parameter', async () => {
+      // A gateway that implements Responses without the reasoning contract.
+      const pipeline = pipe({ reasoning: { effort: 'medium' } });
+      fetchMock.mockResolvedValueOnce(errorResponse(400, reasoningParameterBody));
+      fetchMock.mockResolvedValueOnce(okResponse(sseStream(DONE_R1)));
+
+      expect(await streamError(pipeline, replayRequest())).toBeUndefined();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const first = sentBody(0);
+      const second = sentBody(1);
+      expect(first.reasoning).toBeDefined();
+      expect(second).not.toHaveProperty('reasoning');
+      // Everything except the dropped parameter must be byte-for-byte the same.
+      expect({ ...second, reasoning: null }).toEqual({
+        ...first,
+        reasoning: null,
+      });
+    });
+
+    it('surfaces the second reasoning-parameter rejection without looping', async () => {
+      fetchMock.mockResolvedValue(
+        errorResponse(400, reasoningParameterBody),
+      );
+      expect(
+        await streamError(
+          pipe({ reasoning: { effort: 'medium' } }),
+          replayRequest(),
+        ),
+      ).toMatchObject({ status: 400 });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not retry a reasoning-parameter rejection when none was sent', async () => {
+      fetchMock.mockResolvedValue(errorResponse(400, reasoningParameterBody));
+      expect(await streamError(pipe(), textRequest('hello'))).toMatchObject({
+        status: 400,
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     // ── RED behaviors ────────────────────────────────────────────────────
 
     it.each([
