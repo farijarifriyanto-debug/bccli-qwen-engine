@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { startGatewayProxy } from './proxy.mjs'
 import { GATEWAY } from './gateway.mjs'
 import { listProviderDefinitions } from './providers.mjs'
+import { ensureIsolatedSessionSettings } from './session-settings.mjs'
 
 export { GATEWAY } from './gateway.mjs'
 export const DEFAULT_MODEL = 'ling-3.0-flash'
@@ -21,7 +22,7 @@ export function assertCandidateRuntimeSupported({ platform = process.platform, n
   if (!parts) throw Error('Cannot verify the Node.js version for BCCLI candidate.')
   const major = Number(parts[1]), minor = Number(parts[2]), patch = Number(parts[3])
   if (platform === 'win32' && major === 24 && (minor < 22 || (minor === 22 && patch < 1))) {
-    throw Error('Windows Node.js ' + nodeVersion + ' may crash after coding tools. Use Node.js 24.22.1 or newer, or Node.js 22.23.4. Existing public BCCLI is unaffected.')
+    throw Error('Windows Node.js ' + nodeVersion + ' may crash after coding tools. Use Node.js 24.22.1 or newer, or Node.js 22.23.4. No coding request was sent.')
   }
 }
 const MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._:/+-]{0,255}$/
@@ -266,8 +267,10 @@ export async function launchQwen({ key, model, prompt, mcpConfig, continueSessio
   const proxy = await proxyFactory({ key, endpoint: upstream, liveProvider: true, initialProvider: providerId, searchApiKey })
   try {
     const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, resumeSession, projectDir: process.cwd() })]
+    const childEnv = childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl, providerId, searchAvailable: Boolean(searchApiKey?.trim()) })
+    ensureIsolatedSessionSettings(childEnv.QWEN_HOME)
     const child = spawnImpl(process.execPath, args, {
-      cwd: process.cwd(), env: childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl, providerId, searchAvailable: Boolean(searchApiKey?.trim()) }),
+      cwd: process.cwd(), env: childEnv,
       stdio: 'inherit', windowsHide: false, shell: false,
     })
     return await new Promise((resolve, reject) => {
