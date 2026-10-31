@@ -36,8 +36,8 @@ function help() {
     'Provider choices: botconnector, openai, openrouter, deepseek, groq, xai.',
     'Key entry: bccli --choose or bccli provider add botconnector (hidden terminal prompt).',
     'Model choice: --model; BotConnector defaults to ling-3.0-flash. Other providers need --model.',
-    'Security: allowlisted provider endpoints, ephemeral local token, --bare and default approvals.',
-    'MCP: explicit JSON only, directly under ~/.bccli-preview/ (no project configs).',
+    'Security: allowlisted provider endpoints, ephemeral local token, full upstream tools and default approvals.',
+    'MCP: optional --mcp-config uses owner-controlled JSON; upstream workspace integrations obey trust and approval.',
     'JSON/stream-JSON and legacy commands use bundled stable compatibility implementation.',
     'Preview: new interactive runtime, Apache-2.0 upstream attribution retained.',
   ].join('\n'))
