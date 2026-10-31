@@ -31,7 +31,7 @@ assert.equal(original.dependencies['@qwen-code/qwen-code'], '0.26.3')
 const files = [
   'LICENSE', 'THIRD_PARTY_NOTICES.md',
   'cli.mjs', 'core.mjs', 'proxy.mjs', 'gateway.mjs',
-  'branding.mjs', 'credentials.mjs', 'dialog-models.mjs',
+  'branding.mjs', 'credentials.mjs', 'dialog-models.mjs', 'model-dialog.mjs',
   'providers.mjs', 'provider-cli.mjs', 'startup-menu.mjs',
 ]
 mkdirSync(dest, {recursive:true})

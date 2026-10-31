@@ -15,7 +15,7 @@ test('white-label patch changes only the ASCII logo with strict locator', () => 
 test('Ink and OpenTUI titles update without modifying non-brand fields', () => {
   const session = String.fromCharCode(36) + '{sessionId}'
   const statsSession = String.fromCharCode(36) + '{stats.sessionId}'
-  const ink = 'prefix customBannerTitle?customBannerTitle:">_ Qwen Code" Add a QWEN.md file to give Qwen Code persistent project context. You can resume a previous conversation by running qwen --continue or qwen --resume. You can run any shell commands from Qwen Code using ! (e.g. !ls). qwen --resume ' + session + ' suffix' + ' settings.merged.ui?.useTerminalBuffer settings.merged.ui?.useTerminalBuffer settings.merged.ui?.useTerminalBuffer'
+  const ink = 'prefix customBannerTitle?customBannerTitle:">_ Qwen Code" Add a QWEN.md file to give Qwen Code persistent project context. You can resume a previous conversation by running qwen --continue or qwen --resume. You can run any shell commands from Qwen Code using ! (e.g. !ls). qwen --resume ' + session + ' suffix' + ' settings.merged.ui?.useTerminalBuffer settings.merged.ui?.useTerminalBuffer settings.merged.ui?.useTerminalBuffer' + ' function ModelDialog({onClose}){return 1}__name(ModelDialog,"ModelDialog");'
   const result = patchUiChunk('chunks/startInteractiveUI-CECFAXVK.js', ink)
   assert.match(result, />_ BCCLI \| BotConnector/)
   assert.match(result, /Use \/help to explore BCCLI/)

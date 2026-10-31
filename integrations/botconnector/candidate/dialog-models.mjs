@@ -1,9 +1,9 @@
 // The upstream /model picker lists models from settings.modelProviders. BCCLI's
 // engine can only reach the parent-owned loopback proxy, so publish the live
 // gateway catalog into the per-provider QWEN_HOME as one OpenAI-compatible
-// provider. The picker itself stays upstream-owned (arrow keys, search,
-// --global/--project and one-off prompts); BCCLI only supplies the eligible
-// model set and reads back the persisted selection.
+// provider. BCCLI only supplies the eligible model set and reads back the
+// persisted selection: the primary picker is BCCLI's own searchable dialog
+// (see model-dialog.mjs), while the auxiliary pickers stay upstream-owned.
 import { lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { join } from 'node:path'
