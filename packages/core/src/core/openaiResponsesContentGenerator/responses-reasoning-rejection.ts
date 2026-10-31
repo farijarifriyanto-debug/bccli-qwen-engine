@@ -668,3 +668,23 @@ export function downgradeEncryptedReasoningItems(
     maxLength: null,
   });
 }
+
+/**
+ * True when a 400 says the *request parameter* `reasoning` is not recognised.
+ *
+ * Distinct from the replay rejections above: those refuse reasoning items inside
+ * `input`, while this refuses the top-level `reasoning` object. Gateways that
+ * implement the Responses API before the reasoning contract answer exactly this
+ * way (`Unknown parameter: 'reasoning'`), and without recovery every send fails
+ * the same way, so the model is unusable on that endpoint.
+ */
+export function isReasoningParameterRejection(
+  status: number,
+  responseBody: string,
+): boolean {
+  if (status !== 400 || responseBody.length > MAX_BODY_CHARS) return false;
+  // Gateways quote the name as `'reasoning'`, "reasoning", or bare reasoning;
+  // only the parameter name matters, not the surrounding punctuation.
+  return /unknown\s+parameter[^a-z0-9]{0,8}reasoning/i.test(responseBody);
+}
+

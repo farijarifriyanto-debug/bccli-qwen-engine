@@ -30,6 +30,7 @@ import {
   countReasoningItems,
   downgradeEncryptedReasoningItems,
   isEncryptedReasoningRejection,
+  isReasoningParameterRejection,
   downgradeRejectedReasoningItems,
   parseReasoningIdRejection,
 } from './responses-reasoning-rejection.js';
@@ -341,6 +342,20 @@ export class ResponsesPipeline {
     error: unknown,
   ): ResponsesApiRequest | undefined {
     if (typeof error !== 'object' || error === null) return undefined;
+    // The endpoint may refuse the top-level `reasoning` parameter itself rather
+    // than a replayed item. Dropping it keeps the turn alive: only the reasoning
+    // summary is lost, not the answer.
+    if (
+      (error as Partial<ResponsesApiError>).reasoningParameterRejected === true &&
+      apiRequest.reasoning !== undefined
+    ) {
+      debugLogger.debug(
+        'Retrying once without the reasoning parameter',
+        'effortLost=true',
+      );
+      const { reasoning: _dropped, ...withoutReasoning } = apiRequest;
+      return withoutReasoning;
+    }
     const { reasoningIdRejection: rejection } =
       error as Partial<ResponsesApiError>;
     const encryptedRejected = (error as Partial<ResponsesApiError>)
@@ -779,6 +794,10 @@ export class ResponsesPipeline {
         response.status,
         errBody,
       );
+      err.reasoningParameterRejected = isReasoningParameterRejection(
+        response.status,
+        errBody,
+      );
       throw redactProxyError(err);
     }
 
@@ -1190,6 +1209,8 @@ function summarizeInputItemTypes(items: ResponsesApiInputItem[]): string {
 interface ResponsesApiError extends ResponsesHttpError {
   reasoningIdRejection?: ReasoningIdRejection;
   encryptedReasoningRejected?: boolean;
+  /** Set when the endpoint refuses the top-level `reasoning` request parameter. */
+  reasoningParameterRejected?: boolean;
 }
 
 export function mergeStreamResponses(
