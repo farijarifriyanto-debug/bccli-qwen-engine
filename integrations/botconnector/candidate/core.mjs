@@ -192,12 +192,12 @@ export function qwenArguments(model, prompt, endpoint = GATEWAY, { mcpConfig, co
   return args
 }
 
-export function childEnvironment(base, key, model, { endpoint = GATEWAY, home, providerId = 'botconnector' } = {}) {
+export function childEnvironment(base, key, model, { endpoint = GATEWAY, home, providerId = 'botconnector', searchAvailable = false } = {}) {
   const env = { ...base }
   // Prevent inherited cross-provider auth from becoming another route or key.
   for (const name of [
     'QWEN_OAUTH', 'BOTCONNECTOR_API_KEY', 'OPENAI_API_KEY', 'OPENAI_BASE_URL', 'OPENAI_MODEL', 'QWEN_MODEL',
-    'QWEN_CODE_RELAUNCH_ARGS',
+    'QWEN_CODE_RELAUNCH_ARGS', 'BRAVE_SEARCH_API_KEY',
     'ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL', 'GEMINI_API_KEY',
     'GOOGLE_API_KEY', 'OPENROUTER_API_KEY', 'QWENCLOUD_API_KEY',
     'QWENCLOUD_TOKEN_PLAN_API_KEY', 'DEEPSEEK_API_KEY', 'GROQ_API_KEY', 'XAI_API_KEY',
@@ -211,6 +211,7 @@ export function childEnvironment(base, key, model, { endpoint = GATEWAY, home, p
   env.QWEN_MODEL = model
   env.QWEN_HOME = home ?? (providerId === 'botconnector' ? join(homedir(), '.bccli-preview') : join(homedir(), '.bccli-preview', 'sessions-' + providerId))
   env.BCCLI_ACTIVE_PROVIDER = providerId
+  env.BCCLI_WEB_SEARCH_AVAILABLE = searchAvailable ? '1' : '0'
   env.CLI_TITLE = 'BCCLI - ' + process.cwd().split(/[\\/]/).filter(Boolean).at(-1)
   env.QWEN_CODE_SKIP_UPDATE_CHECK_ONCE = 'true' // Never query or install upstream Qwen releases.
   return env
@@ -261,11 +262,12 @@ export function resolveQwenEntrypoint() {
 export async function launchQwen({ key, model, prompt, mcpConfig, continueSession = false, resumeSession, upstream = GATEWAY, providerId = 'botconnector', env = process.env, entrypoint = resolveQwenEntrypoint(), spawnImpl = spawn, proxyFactory = startGatewayProxy }) {
   // The real API key never enters Qwen, its tools, or any MCP child process.
   // Only this launcher retains it while the ephemeral proxy is running.
-  const proxy = await proxyFactory({ key, endpoint: upstream, liveProvider: true, initialProvider: providerId })
+  const searchApiKey = env.BRAVE_SEARCH_API_KEY
+  const proxy = await proxyFactory({ key, endpoint: upstream, liveProvider: true, initialProvider: providerId, searchApiKey })
   try {
     const args = [entrypoint, ...qwenArguments(model, prompt, proxy.baseUrl, { mcpConfig, continueSession, resumeSession, projectDir: process.cwd() })]
     const child = spawnImpl(process.execPath, args, {
-      cwd: process.cwd(), env: childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl, providerId }),
+      cwd: process.cwd(), env: childEnvironment(env, proxy.token, model, { endpoint: proxy.baseUrl, providerId, searchAvailable: Boolean(searchApiKey?.trim()) }),
       stdio: 'inherit', windowsHide: false, shell: false,
     })
     return await new Promise((resolve, reject) => {

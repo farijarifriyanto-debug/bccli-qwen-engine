@@ -383,6 +383,19 @@ export function patchUiChunk(file, text) {
         'baseUrl:baseUrlResult?.value,proxy:process.env.BCCLI_ACTIVE_PROVIDER?void 0:proxy,...generationConfig',
         'prevent project proxy configuration from diverting BCCLI model traffic')
     }
+    // When the parent has a separate Brave Search key, expose a provider-
+    // neutral web_search backed by its token-gated local search proxy.
+    // Otherwise retain upstream DashScope search behavior unchanged.
+    if (result.includes('await registerLazy(ToolNames.WEB_FETCH,async()=>')) {
+      result = replaceOnce(result,
+        'const hasExplicitWebSearchBackend=',
+        'if(process.env.BCCLI_WEB_SEARCH_AVAILABLE==="1"){await registerLazy("web_search",async()=>{const{BccliWebSearchTool}=await import("./bccli-web-search-tool.mjs");return new BccliWebSearchTool()})}const hasExplicitWebSearchBackend=',
+        'register provider-neutral BCCLI web search tool')
+      result = replaceOnce(result,
+        'if(!this.getBareMode()&&!this.isSafeMode()&&this.webSearchSettings?.enabled!==false',
+        'if(process.env.BCCLI_WEB_SEARCH_AVAILABLE!=="1"&&!this.getBareMode()&&!this.isSafeMode()&&this.webSearchSettings?.enabled!==false',
+        'avoid duplicate upstream DashScope web search when BCCLI search is active')
+    }
     // In full mode all upstream tools stay available. Also register the BCCLI
     // read-before-patch tool alongside the upstream file and shell tools.
     if (result.includes('await registerLazy(ToolNames.REPORT_FINDINGS,async()=>')) {
@@ -487,6 +500,7 @@ export function prepareBrandedQwen(entrypoint, { cacheRoot } = {}) {
     ...assertSource(packageDir),
     'chunks/bccli-atomic-patch.mjs': readFileSync(join(sourceDir, 'atomic-patch.mjs'), 'utf8'),
     'chunks/bccli-apply-patch-tool.mjs': readFileSync(join(sourceDir, 'apply-patch-tool.mjs'), 'utf8'),
+    'chunks/bccli-web-search-tool.mjs': readFileSync(join(sourceDir, 'web-search-tool.mjs'), 'utf8'),
   }
   const outputHashes = Object.fromEntries(Object.entries(patched).map(([file, value]) => [file, digest(value)]))
   const manifest = { revision: BRAND_REVISION, version: VERSION, sourceHashes: SOURCE_HASHES, outputHashes }
