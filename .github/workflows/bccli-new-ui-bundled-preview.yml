@@ -72,3 +72,30 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Stable SDK exports missing' }
           } finally { Pop-Location }
           Write-Output 'PASS: new BCCLI UI source, offline package integrity, no npm audio hook, installed SDK and CLI'
+      - name: Build and smoke-test BCCLI 0.5.2 stable release artifact (unpublished)
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'bccli-full-engine-052-stable'
+          & node integrations/botconnector/release/prepare-preview-ui.mjs --out $out --release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $archive = Join-Path $out 'botconnector-bccli-0.5.2.tgz'
+          if (-not (Test-Path $archive)) { throw 'Stable 0.5.2 archive is missing' }
+          $install = Join-Path $env:RUNNER_TEMP 'bccli-full-engine-052-installed'
+          New-Item -ItemType Directory -Force -Path $install | Out-Null
+          & npm install --prefix $install --ignore-scripts --no-audit --no-fund $archive
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $pkg = Join-Path $install 'node_modules/@botconnector/bccli'
+          $metadata = Get-Content (Join-Path $pkg 'package.json') -Raw | ConvertFrom-Json
+          if ($metadata.version -ne '0.5.2' -or $metadata.publishConfig.tag -ne 'latest') { throw 'Stable release metadata mismatch' }
+          foreach ($file in @('web-search-backend.mjs','web-search-tool.mjs','engine/cli-entry.js','engine/LICENSE','legacy/dist/sdk.js','atomic-patch.mjs','apply-patch-tool.mjs')) {
+            if (-not (Test-Path (Join-Path $pkg $file))) { throw "Missing stable runtime file: $file" }
+          }
+          if (Test-Path (Join-Path $install 'node_modules/@qwen-code')) { throw 'Unexpected @qwen-code npm install' }
+          $v = (& node (Join-Path $pkg 'cli.mjs') --version | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0 -or $v -ne '0.5.2') { throw "Installed version is not 0.5.2: $v" }
+          Push-Location $install
+          try {
+            & node --input-type=module -e "import('@botconnector/bccli').then(m=>{if(typeof m.runTask!=='function'||typeof m.streamTask!=='function')process.exit(4)})"
+            if ($LASTEXITCODE -ne 0) { throw 'Legacy SDK is missing' }
+          } finally { Pop-Location }
+          Write-Output 'PASS: stable 0.5.2 package clean install with model-independent web_search and legacy SDK'

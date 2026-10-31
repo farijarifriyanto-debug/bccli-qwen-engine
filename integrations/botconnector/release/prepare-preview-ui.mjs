@@ -10,14 +10,16 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const VERSION = '0.5.2-rc.12'
+const rawArgs = process.argv.slice(2)
+const IS_STABLE_RELEASE = rawArgs.at(-1) === '--release'
+const VERSION = IS_STABLE_RELEASE ? '0.5.2' : '0.5.2-rc.12'
 const ENGINE = '@qwen-code/qwen-code@0.26.3'
 const PINNED_ENGINE_SHA512 = 'sha512-z8dL1+N2eI1RwQm/tceJmFbxPtdin4TKpFucoau8Nl4bm/DsXsohQLFPM45t20sVzAaYg8aH8qLpX5RCIiXE3A=='
 const LEGACY = '@botconnector/bccli@0.4.17'
 const PINNED_LEGACY_SHA512 = 'sha512-0LqRhABBHTJKL7XLN9ZqHOWfiFx/iib6UjnwvGPeKPrtcE9iLxtkwhmsj6Qr7PnZVmIw57lwT5IvlzvYz6CIPg=='
-const rawArgs = process.argv.slice(2)
-if (rawArgs.length !== 0 && (rawArgs.length !== 2 || rawArgs[0] !== '--out' || !rawArgs[1])) {
-  throw Error('Usage: node prepare-preview-ui.mjs [--out UNIQUE_DIRECTORY]')
+if (rawArgs.length !== 0 && !(rawArgs.length === 2 && rawArgs[0] === '--out' && rawArgs[1]) &&
+    !(rawArgs.length === 3 && rawArgs[0] === '--out' && rawArgs[1] && rawArgs[2] === '--release')) {
+  throw Error('Usage: node prepare-preview-ui.mjs [--out UNIQUE_DIRECTORY] [--release]')
 }
 const source = fileURLToPath(new URL('../candidate/', import.meta.url))
 const dest = resolve(rawArgs[1] || join(tmpdir(), 'bccli-new-ui-preview-' + VERSION))
@@ -63,7 +65,7 @@ const files = [
   'LICENSE','THIRD_PARTY_NOTICES.md','cli.mjs','core.mjs','proxy.mjs',
   'gateway.mjs','branding.mjs','credentials.mjs','model-command.mjs',
   'providers.mjs','provider-cli.mjs','startup-menu.mjs','legacy-compat.mjs', 'provider-command.mjs', 'native-key-dialog.mjs', 'provider-dialog.mjs',
-  'atomic-patch.mjs', 'apply-patch-tool.mjs',
+  'atomic-patch.mjs', 'apply-patch-tool.mjs', 'web-search-backend.mjs', 'web-search-tool.mjs',
 ]
 for (const file of files) {
   assert.ok(existsSync(join(source, file)), 'Required BCCLI file missing: ' + file)
@@ -95,7 +97,9 @@ const pkg = {
   name: '@botconnector/bccli',
   version: VERSION,
   private: false,
-  description: 'BCCLI preview | New terminal UI with integrity-pinned Apache-2.0 engine and no @qwen-code npm dependency',
+  description: IS_STABLE_RELEASE
+    ? 'BCCLI | Full coding engine and legacy SDK with verified Apache-2.0 bundled runtime'
+    : 'BCCLI preview | New terminal UI with integrity-pinned Apache-2.0 engine and no @qwen-code npm dependency',
   bin: { bccli: './cli.mjs' },
   main: './legacy/dist/sdk.js',
   types: './legacy/dist/sdk.d.ts',
@@ -104,7 +108,7 @@ const pkg = {
   overrides: { ...legacyPackage.overrides, ...pkgSource.overrides },
   files: [...files, 'legacy', 'engine'],
   // npm publication remains an independent, authenticated release operation.
-  publishConfig: { access: 'public', tag: 'next' },
+  publishConfig: { access: 'public', tag: IS_STABLE_RELEASE ? 'latest' : 'next' },
 }
 delete pkg.private
 assert.ok(!Object.keys(pkg.dependencies).some(name => name.startsWith('@qwen-code/')), 'Qwen dependency must not reach npm registry')
