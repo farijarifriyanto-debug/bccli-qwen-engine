@@ -7,6 +7,7 @@ import { patchModelDialog } from '../branding.mjs';
 function harness({
   models = ['glm-5.3-flash', 'gpt-5.6-sol', 'qwen3.8-max'],
   switchFails = false,
+  persistScope,
 } = {}) {
   let index = 0,
     input,
@@ -15,6 +16,12 @@ function harness({
   const states = [];
   const calls = [];
   let activeModel = 'glm-5.3-flash';
+  const settings = {
+    values: {},
+    setValue(scope, key, value) {
+      this.values[key] = value;
+    },
+  };
   const fakeFetch = async (url, options = {}) => {
     calls.push({
       url,
@@ -74,6 +81,11 @@ function harness({
       status: { error: 'red' },
     },
     useConfig: () => config,
+    useSettings: () => settings,
+    persistModelSelection: (s, modelId, baseUrl, scope) => {
+      s.setValue(scope, 'model.name', modelId);
+      s.setValue(scope, 'model.baseUrl', baseUrl ?? '');
+    },
     useKeypress: (callback) => {
       input = callback;
     },
@@ -97,7 +109,7 @@ function harness({
   };
   const render = () => {
     index = 0;
-    return BccliModelPicker({ onClose });
+    return BccliModelPicker({ onClose, persistScope });
   };
   const flatten = (node, out = []) => {
     if (node == null) return out;
@@ -134,6 +146,7 @@ function harness({
     calls,
     getClosed: () => closed,
     getModel: () => activeModel,
+    getPersisted: (key) => settings.values[key],
   };
 }
 
@@ -194,6 +207,30 @@ test('Enter on a filtered row switches the model and records it with the gateway
     provider: 'botconnector',
     model: 'qwen3.8-max',
   });
+});
+
+test('a selected model is persisted to the engine settings for the next launch', async () => {
+  const x = harness();
+  await x.start();
+  for (const letter of 'qwen') await x.key(letter, letter);
+  await x.key('return');
+  await x.wait();
+  assert.equal(x.getModel(), 'qwen3.8-max');
+  assert.equal(x.getPersisted('model.name'), 'qwen3.8-max');
+  assert.equal(
+    x.getPersisted('model.baseUrl'),
+    'http://127.0.0.1:43434/v1',
+  );
+});
+
+test('a failed gateway record does not persist the selection', async () => {
+  const x = harness({ switchFails: true });
+  await x.start();
+  await x.key('down');
+  await x.key('return');
+  await x.wait();
+  assert.equal(x.getModel(), 'glm-5.3-flash');
+  assert.equal(x.getPersisted('model.name'), undefined);
 });
 
 test('a failed gateway record rolls the model back and reports it', async () => {
