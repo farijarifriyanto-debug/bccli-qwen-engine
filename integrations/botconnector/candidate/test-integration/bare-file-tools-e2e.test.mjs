@@ -135,7 +135,8 @@ test('isolated fixture with explicit auto-edit permission executes an actual mul
  try{
   assert.equal(data.result.code,0,data.result.stderr)
   assert.match(data.result.stdout,/PATCH_WITH_EXPLICIT_AUTO_EDIT_COMPLETE/)
-  assert.equal(readFileSync(path.join(data.workspace,'calculation.py'),'utf8'),'amount = 2\nprint(amount * 2)\n')
+  assert.equal(readFileSync(path.join(data.workspace,'calculation.py'),'utf8'),'amount = 2\nprint(amount * 2)\n',
+    'tool outputs: '+JSON.stringify(data.seen.slice(1).flatMap(v=>v.messages?.filter(m=>m.role==='tool').map(m=>m.content)||[])).slice(-1200))
   const responses=JSON.stringify(data.seen.slice(1).flatMap(v=>v.messages?.filter(m=>m.role==='tool').map(m=>m.content)||[]))
   assert.match(responses,/\\"ok\\":true/,'tool must report actual successful commit')
  }finally{rmSync(data.workspace,{recursive:true,force:true})}

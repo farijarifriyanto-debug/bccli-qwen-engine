@@ -16,26 +16,38 @@ export function planAtomicPatch({ root, file_path, replacements, expected_sha256
   if (!Array.isArray(replacements) || replacements.length < 1 || replacements.length > MAX_REPLACEMENTS) {
     fail('invalid_patch', 'Provide 1-32 exact old_text/new_text replacements')
   }
-  // Compare lexical paths relative to the caller's workspace first, then
-  // compare canonical parents. macOS maps /var to /private/var: rejecting
-  // any realpath != resolve(path) would incorrectly reject every /var fixture.
-  const lexicalRoot = resolve(root)
-  const workspace = realpathSync(lexicalRoot)
+  // Workspaces and file paths can use different aliases to the same root
+  // (macOS /var -> /private/var). Enforce containment on canonical paths,
+  // then inspect each directory beneath the workspace for symlinks. Aliases
+  // in ancestors ABOVE the workspace remain allowed.
+  const workspace = realpathSync(root)
   const target = resolve(file_path)
-  const rel = relative(lexicalRoot, target)
-  if (!rel || rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel) ||
-      rel.split(sep).some(segment => segment.toLowerCase() === '.git')) {
+  const parent = dirname(target)
+  const canonicalParent = realpathSync(parent)
+  const canonicalRel = relative(workspace, resolve(canonicalParent, basename(target)))
+  if (!canonicalRel || canonicalRel === '..' || canonicalRel.startsWith('..' + sep) ||
+      isAbsolute(canonicalRel) || canonicalRel.split(sep).some(segment => segment.toLowerCase() === '.git')) {
     fail('path_outside_workspace', 'Patch must target a project file outside .git')
   }
-  const expectedParent = resolve(workspace, dirname(rel))
-  const canonicalParent = realpathSync(dirname(target))
-  if (canonicalParent.toLowerCase() !== expectedParent.toLowerCase()) {
-    fail('symlink_path', 'Symlinked parent directory is not writable by apply_patch')
+  const samePath = (a, b) => process.platform === 'win32'
+    ? a.toLowerCase() === b.toLowerCase() : a === b
+  let cursor = parent
+  while (true) {
+    const resolvedCursor = realpathSync(cursor)
+    if (lstatSync(cursor).isSymbolicLink()) {
+      const containingDir = realpathSync(dirname(cursor))
+      const inside = relative(workspace, containingDir)
+      // An explicitly aliased workspace root is fine. An alias CREATED
+      // under that workspace (including one pointing at its root) is not.
+      if (!inside || (inside !== '..' && !inside.startsWith('..' + sep) && !isAbsolute(inside))) {
+        fail('symlink_path', 'Symlinked parent directory is not writable by apply_patch')
+      }
+    }
+    if (samePath(resolvedCursor, workspace)) break
+    const up = dirname(cursor)
+    if (up === cursor) fail('path_outside_workspace', 'Patch path cannot reach workspace root')
+    cursor = up
   }
-  const canonicalTarget = resolve(canonicalParent, basename(target))
-  const canonicalRel = relative(workspace, canonicalTarget)
-  if (!canonicalRel || canonicalRel === '..' || canonicalRel.startsWith('..' + sep) ||
-      isAbsolute(canonicalRel)) fail('path_outside_workspace', 'Patch target escaped the workspace')
   const stat = lstatSync(target)
   if (!stat.isFile() || stat.isSymbolicLink()) fail('unsafe_target', 'Only existing regular files can be patched')
   if (stat.size > MAX_FILE_BYTES) fail('too_large', 'File exceeds 1 MiB patch limit')

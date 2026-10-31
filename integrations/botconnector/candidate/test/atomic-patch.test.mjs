@@ -90,10 +90,18 @@ test('canonical workspace aliases are accepted without following nested symlink 
  const plan=patch(alias,'code.py',[{old_text:'before = 1',new_text:'after = 2'}])
  commitAtomicPatch(plan)
  assert.equal(readFileSync(path.join(source,'code.py'),'utf8'),'after = 2\n')
+ // Mirrors macOS getProjectRoot() using /private/var while model file paths
+ // still use /var: canonical root and aliased target must be equivalent.
+ const second=planAtomicPatch({root:source,file_path:path.join(alias,'code.py'),
+   replacements:[{old_text:'after = 2',new_text:'after = 3'}]})
+ commitAtomicPatch(second)
+ assert.equal(readFileSync(path.join(source,'code.py'),'utf8'),'after = 3\n')
  mkdirSync(path.join(source,'directory'))
  writeFileSync(path.join(source,'directory','target.py'),'data = 1\n')
  symlinkSync(path.join(source,'directory'),path.join(source,'nested-alias'),'dir')
  assert.throws(()=>patch(alias,'nested-alias/target.py',[{old_text:'data = 1',new_text:'data = 2'}]),{code:'symlink_path'})
+ symlinkSync(source,path.join(source,'self-alias'),'dir')
+ assert.throws(()=>patch(alias,'self-alias/code.py',[{old_text:'after = 3',new_text:'after = 4'}]),{code:'symlink_path'})
 }))
 
 test('abort before commit is safe and leaves no temp files',()=>workspace(root=>{
