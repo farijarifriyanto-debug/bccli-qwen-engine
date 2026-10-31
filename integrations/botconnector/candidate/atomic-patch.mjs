@@ -2,7 +2,7 @@
 // Deliberately no shell, arbitrary paths, symlink writes, creates or deletes.
 import { createHash, randomBytes } from 'node:crypto'
 import { closeSync, existsSync, fsyncSync, lstatSync, openSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 const MAX_FILE_BYTES = 1024 * 1024
 const MAX_REPLACEMENTS = 32
@@ -16,16 +16,26 @@ export function planAtomicPatch({ root, file_path, replacements, expected_sha256
   if (!Array.isArray(replacements) || replacements.length < 1 || replacements.length > MAX_REPLACEMENTS) {
     fail('invalid_patch', 'Provide 1-32 exact old_text/new_text replacements')
   }
-  const workspace = realpathSync(root)
+  // Compare lexical paths relative to the caller's workspace first, then
+  // compare canonical parents. macOS maps /var to /private/var: rejecting
+  // any realpath != resolve(path) would incorrectly reject every /var fixture.
+  const lexicalRoot = resolve(root)
+  const workspace = realpathSync(lexicalRoot)
   const target = resolve(file_path)
-  const rel = relative(workspace, target)
+  const rel = relative(lexicalRoot, target)
   if (!rel || rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel) ||
-      rel.split(sep).some(segment => segment === '.git')) {
+      rel.split(sep).some(segment => segment.toLowerCase() === '.git')) {
     fail('path_outside_workspace', 'Patch must target a project file outside .git')
   }
-  if (realpathSync(dirname(target)).toLowerCase() !== resolve(dirname(target)).toLowerCase()) {
+  const expectedParent = resolve(workspace, dirname(rel))
+  const canonicalParent = realpathSync(dirname(target))
+  if (canonicalParent.toLowerCase() !== expectedParent.toLowerCase()) {
     fail('symlink_path', 'Symlinked parent directory is not writable by apply_patch')
   }
+  const canonicalTarget = resolve(canonicalParent, basename(target))
+  const canonicalRel = relative(workspace, canonicalTarget)
+  if (!canonicalRel || canonicalRel === '..' || canonicalRel.startsWith('..' + sep) ||
+      isAbsolute(canonicalRel)) fail('path_outside_workspace', 'Patch target escaped the workspace')
   const stat = lstatSync(target)
   if (!stat.isFile() || stat.isSymbolicLink()) fail('unsafe_target', 'Only existing regular files can be patched')
   if (stat.size > MAX_FILE_BYTES) fail('too_large', 'File exceeds 1 MiB patch limit')
@@ -60,7 +70,7 @@ export function planAtomicPatch({ root, file_path, replacements, expected_sha256
   if (afterBytes.length > MAX_FILE_BYTES) fail('too_large', 'Result exceeds 1 MiB')
   if (beforeBytes.equals(afterBytes)) fail('no_changes', 'Patch does not change the file')
   return {
-    target, root: workspace, beforeHash, afterHash: hash(afterBytes),
+    target, root: workspace, parentCanonical: canonicalParent, beforeHash, afterHash: hash(afterBytes),
     before: original, after, beforeBytes, afterBytes, mode: stat.mode,
     replacementCount: replacements.length,
   }
@@ -70,7 +80,7 @@ export function commitAtomicPatch(plan, { signal } = {}) {
   if (signal?.aborted) fail('aborted', 'Patch cancelled before write')
   const { target, beforeHash, afterBytes } = plan
   const folder = dirname(target)
-  if (realpathSync(folder).toLowerCase() !== resolve(folder).toLowerCase()) fail('symlink_path', 'Parent path changed')
+  if (realpathSync(folder).toLowerCase() !== plan.parentCanonical.toLowerCase()) fail('symlink_path', 'Parent path changed')
   const stat = lstatSync(target)
   if (!stat.isFile() || stat.isSymbolicLink() || hash(readFileSync(target)) !== beforeHash) {
     fail('conflict', 'File changed since patch was prepared')

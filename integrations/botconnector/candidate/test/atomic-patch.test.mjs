@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {mkdtempSync,mkdirSync,readFileSync,rmSync,writeFileSync} from 'node:fs'
+import {mkdtempSync,mkdirSync,readFileSync,rmSync,symlinkSync,writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import path from 'node:path'
 import {createHash} from 'node:crypto'
@@ -78,6 +78,22 @@ test('rejects binary, invalid UTF-8, and mixed newlines',()=>workspace(root=>{
  assert.throws(()=>patch(root,'a.bin',[{old_text:'a',new_text:'b'}]),/encoded|encoding|valid|UTF/i)
  writeFileSync(file,'a\r\nb\n')
  assert.throws(()=>patch(root,'a.bin',[{old_text:'a',new_text:'b'}]),{code:'mixed_line_endings'})
+}))
+
+
+test('canonical workspace aliases are accepted without following nested symlink directories', {skip:process.platform==='win32'},()=>workspace(root=>{
+ const source=path.join(root,'project')
+ mkdirSync(source)
+ writeFileSync(path.join(source,'code.py'),'before = 1\n')
+ const alias=path.join(root,'project-alias')
+ symlinkSync(source,alias,'dir')
+ const plan=patch(alias,'code.py',[{old_text:'before = 1',new_text:'after = 2'}])
+ commitAtomicPatch(plan)
+ assert.equal(readFileSync(path.join(source,'code.py'),'utf8'),'after = 2\n')
+ mkdirSync(path.join(source,'directory'))
+ writeFileSync(path.join(source,'directory','target.py'),'data = 1\n')
+ symlinkSync(path.join(source,'directory'),path.join(source,'nested-alias'),'dir')
+ assert.throws(()=>patch(alias,'nested-alias/target.py',[{old_text:'data = 1',new_text:'data = 2'}]),{code:'symlink_path'})
 }))
 
 test('abort before commit is safe and leaves no temp files',()=>workspace(root=>{
