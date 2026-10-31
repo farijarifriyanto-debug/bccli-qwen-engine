@@ -12,6 +12,7 @@
 // uses for this region: import_react31 for hooks, import_jsx_runtime36 for jsx.
 export const BCCLI_MODEL_DIALOG = String.raw`function BccliModelPicker(props){
   const config=useConfig();
+  const settings=useSettings();
   const [models,setModels]=(0,import_react31.useState)([]);
   const [search,setSearch]=(0,import_react31.useState)("");
   const [editing,setEditing]=(0,import_react31.useState)(false);
@@ -64,6 +65,7 @@ export const BCCLI_MODEL_DIALOG = String.raw`function BccliModelPicker(props){
         if(previous&&previous!==id)await config.setModel(previous,{reason:"bccli-gateway-model-picker-rollback"}).catch(()=>{});
         throw Error("Model selection was not saved");
       }
+      persistModelSelection(settings,id,base,props.persistScope);
       setActive(id);
       props.onClose?.();
     }catch(error){
@@ -106,7 +108,7 @@ export const BCCLI_MODEL_DIALOG = String.raw`function BccliModelPicker(props){
     flexDirection:"column",padding:1,width:"100%",children:[
     (0,import_jsx_runtime36.jsx)(Text,{bold:true,children:title}),
     (0,import_jsx_runtime36.jsx)(Text,{color:theme.text.secondary,children:models.length?
-      "Search models ("+count+"/"+models.length+") · type to filter · Esc clears the search, then closes":
+      "Search models ("+count+"/"+models.length+") · type to filter · Esc stops editing, then clears, then closes":
       "Loading the provider model catalog..."}),
     (0,import_jsx_runtime36.jsx)(Text,{color:editing?theme.text.link:theme.text.secondary,children:searchRow}),
     ...(visible.length?visible.map((label,index)=>{
