@@ -37,7 +37,7 @@ function help() {
     'Key entry: bccli --choose or bccli provider add botconnector (hidden terminal prompt).',
     'Model choice: --model; BotConnector defaults to ling-3.0-flash. Other providers need --model.',
     'Security: allowlisted provider endpoints, ephemeral local token, full upstream tools and default approvals.',
-    'MCP: optional --mcp-config uses owner-controlled JSON; upstream workspace integrations obey trust and approval.',
+    'MCP: --mcp-config accepts owner-controlled JSON directly under ~/.bccli-preview/; upstream project integrations use workspace trust and approval.',
     'JSON/stream-JSON and legacy commands use bundled stable compatibility implementation.',
     'Preview: new interactive runtime, Apache-2.0 upstream attribution retained.',
   ].join('\n'))

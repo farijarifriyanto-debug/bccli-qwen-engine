@@ -9,5 +9,5 @@ test('BCCLI help advertises full engine instead of obsolete --bare policy',()=>{
   assert.equal(result.status,0,result.stderr)
   assert.match(result.stdout,/full upstream tools/)
   assert.doesNotMatch(result.stdout,/--bare/)
-  assert.match(result.stdout,/workspace integrations obey trust and approval/)
+  assert.match(result.stdout,/project integrations use workspace trust and approval/)
 })
