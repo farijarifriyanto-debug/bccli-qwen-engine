@@ -32,6 +32,8 @@ export interface DescriptiveRadioButtonSelectProps<T> {
   showScrollArrows?: boolean;
   /** The maximum number of items to show at once. */
   maxItemsToShow?: number;
+  /** Turn off j/k navigation while an owning dialog reads those keys as search text. */
+  disableVimNav?: boolean;
   /** Gap (in rows) between each item. */
   itemGap?: number;
 }
@@ -50,6 +52,7 @@ export function DescriptiveRadioButtonSelect<T>({
   showNumbers = false,
   showScrollArrows = false,
   maxItemsToShow = 10,
+  disableVimNav = false,
   itemGap = 0,
 }: DescriptiveRadioButtonSelectProps<T>): React.JSX.Element {
   return (
@@ -62,6 +65,7 @@ export function DescriptiveRadioButtonSelect<T>({
       showNumbers={showNumbers}
       showScrollArrows={showScrollArrows}
       maxItemsToShow={maxItemsToShow}
+      disableVimNav={disableVimNav}
       itemGap={itemGap}
       renderItem={(item, { titleColor }) => {
         const hasDescription =

@@ -381,6 +381,10 @@ export default {
   'type to filter…': '输入以过滤…',
   'No skills are currently available.': '当前没有可用的技能。',
   'No skills match the search.': '没有匹配搜索的技能。',
+  '{{matched}} / {{total}} models': '{{matched}} / {{total}} 个模型',
+  'No models match the search.': '没有匹配搜索的模型。',
+  '↑/↓ navigate · backspace edits search · Esc clears search':
+    '↑/↓ 导航 · 退格 编辑搜索 · Esc 清除搜索',
   'Locked by settings entries you cannot toggle here:':
     '被无法在此切换的设置条目锁定：',
   '{{count}} locked not shown': '{{count}} 个已锁定技能未显示',

@@ -12,6 +12,7 @@ import {
   type DescriptiveRadioSelectItem,
   type DescriptiveRadioButtonSelectProps,
 } from './DescriptiveRadioButtonSelect.js';
+import { BaseSelectionList } from './BaseSelectionList.js';
 
 vi.mock('./BaseSelectionList.js', async (importOriginal) => {
   const actual =
@@ -115,6 +116,12 @@ describe('DescriptiveRadioButtonSelect', () => {
     });
 
     expect(lastFrame()).toBe('› Foo Title\n  Bar Title');
+  });
+
+  it('forwards disableVimNav so an owning search box keeps j/k as text', () => {
+    renderComponent({ disableVimNav: true });
+    const props = vi.mocked(BaseSelectionList).mock.calls.at(-1)![0];
+    expect(props.disableVimNav).toBe(true);
   });
 
   it('renders a non-string (ReactNode) description', () => {

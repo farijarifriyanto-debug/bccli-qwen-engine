@@ -142,6 +142,10 @@ export default {
   'type to filter…': 'введите для фильтрации…',
   'No skills are currently available.': 'Сейчас навыков нет.',
   'No skills match the search.': 'Нет навыков, соответствующих поиску.',
+  '{{matched}} / {{total}} models': '{{matched}} / {{total}} моделей',
+  'No models match the search.': 'Нет моделей, соответствующих поиску.',
+  '↑/↓ navigate · backspace edits search · Esc clears search':
+    '↑/↓ навигация · backspace редактирует поиск · Esc очищает поиск',
   'Locked by settings entries you cannot toggle here:':
     'Заблокированы записями настроек (здесь переключить нельзя):',
   '{{count}} locked not shown':

@@ -122,6 +122,10 @@ export default {
   'type to filter…': 'Tippen zum Filtern…',
   'No skills are currently available.': 'Derzeit sind keine Skills verfügbar.',
   'No skills match the search.': 'Keine Skills passen zur Suche.',
+  '{{matched}} / {{total}} models': '{{matched}} / {{total}} Modelle',
+  'No models match the search.': 'Keine Modelle passen zur Suche.',
+  '↑/↓ navigate · backspace edits search · Esc clears search':
+    '↑/↓ navigieren · Backspace bearbeitet die Suche · Esc leert die Suche',
   'Locked by settings entries you cannot toggle here:':
     'Gesperrt durch Einstellungseinträge, die hier nicht umgeschaltet werden können:',
   '{{count}} locked not shown': '{{count}} gesperrte Skills nicht angezeigt',

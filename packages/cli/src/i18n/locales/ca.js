@@ -142,6 +142,10 @@ export default {
   'No skills are currently available.':
     'No hi ha habilitats disponibles actualment.',
   'No skills match the search.': 'Cap habilitat coincideix amb la cerca.',
+  '{{matched}} / {{total}} models': '{{matched}} / {{total}} models',
+  'No models match the search.': 'Cap model coincideix amb la cerca.',
+  '↑/↓ navigate · backspace edits search · Esc clears search':
+    '↑/↓ navegar · Backspace edita la cerca · Esc neteja la cerca',
   'Locked by settings entries you cannot toggle here:':
     'Bloquejades per entrades de paràmetres (aquí no es poden commutar):',
   '{{count}} locked not shown': '{{count}} habilitats bloquejades no mostrades',

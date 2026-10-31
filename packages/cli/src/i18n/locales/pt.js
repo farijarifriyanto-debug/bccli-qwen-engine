@@ -135,6 +135,10 @@ export default {
   'No skills are currently available.':
     'Nenhuma habilidade está disponível no momento.',
   'No skills match the search.': 'Nenhuma habilidade corresponde à pesquisa.',
+  '{{matched}} / {{total}} models': '{{matched}} / {{total}} modelos',
+  'No models match the search.': 'Nenhum modelo corresponde à pesquisa.',
+  '↑/↓ navigate · backspace edits search · Esc clears search':
+    '↑/↓ navegar · backspace edita a pesquisa · Esc limpa a pesquisa',
   'Locked by settings entries you cannot toggle here:':
     'Bloqueado por entradas de configuração (não é possível alternar aqui):',
   '{{count}} locked not shown': '{{count}} habilidades bloqueadas não exibidas',

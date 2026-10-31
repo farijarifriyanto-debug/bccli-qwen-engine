@@ -104,6 +104,10 @@ export default {
   'type to filter…': 'フィルタを入力…',
   'No skills are currently available.': '利用可能なスキルはありません。',
   'No skills match the search.': '検索に一致するスキルはありません。',
+  '{{matched}} / {{total}} models': '{{matched}} / {{total}} モデル',
+  'No models match the search.': '検索に一致するモデルはありません。',
+  '↑/↓ navigate · backspace edits search · Esc clears search':
+    '↑/↓ 移動 · Backspace 検索編集 · Esc 検索クリア',
   'Locked by settings entries you cannot toggle here:':
     '設定エントリによってロックされています（ここでは切替不可）：',
   '{{count}} locked not shown': 'ロック中の {{count}} 件を非表示',
