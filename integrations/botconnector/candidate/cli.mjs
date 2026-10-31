@@ -1,12 +1,19 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs'
-import { DEFAULT_MODEL, assertCandidateRuntimeSupported, discoverModels, launchQwen, parseArgs, resolveQwenEntrypoint, resolveTrustedMcpConfig, selectModel } from './core.mjs'
+import { DEFAULT_MODEL, assertCandidateRuntimeSupported, discoverModels, launchQwen, parseArgs, resolveQwenEntrypoint, resolveTrustedMcpConfig, selectModel, sessionHome } from './core.mjs'
 import { prepareBrandedQwen } from './branding.mjs'
+import { readDialogSelectedModel } from './dialog-models.mjs'
 import { botConnectorCredentialStatus } from './credentials.mjs'
 import { resolveProvider, selectedProvider, providerDefinition, isConfigured } from './providers.mjs'
 import { runProviderCommand } from './provider-cli.mjs'
 import { startupMenu, autoSelectStartup, PROVIDER_SWITCH_EXIT } from './startup-menu.mjs'
 import { legacyCompatibilityMode, runLegacyCli } from './legacy-compat.mjs'
+
+// An unreadable or unsafe settings file must not block startup; the picker
+// simply falls back to the legacy active-model record.
+function dialogModel(providerId) {
+  try { return readDialogSelectedModel(sessionHome(providerId)) } catch { return undefined }
+}
 
 function help() {
   console.log([
@@ -84,18 +91,22 @@ async function main() {
   if (!args.prompt && !process.stdin.isTTY) throw Error('Interactive mode requires a TTY; use -p "prompt".')
   const mcpConfig = resolveTrustedMcpConfig(args.mcpConfig)
   let chosen
+  let catalog
   const showPicker = args.command === 'chat' && !args.prompt && !args.model
   if (showPicker) {
     chosen = forceChoose ? undefined : await autoSelectStartup({
       ...(args.provider ? { providerId: args.provider } : {}),
+      dialogModel,
     })
     if (!chosen) chosen = await startupMenu({
       ...(args.provider ? { currentProvider: () => args.provider } : {}),
+      dialogModel,
     })
   } else {
     const providerId = args.provider ?? selectedProvider()
     const profile = resolveProvider(providerId)
     const models = await discoverModels({ key: profile.key, endpoint: profile.endpoint })
+    catalog = models
     const requested = args.model ??
       (providerId === 'botconnector' ? (process.env.BOTCONNECTOR_MODEL_ID ?? DEFAULT_MODEL) : undefined)
     if (!requested) throw Error('Use --model MODEL_ID for ' + providerId + '.')
@@ -109,15 +120,16 @@ async function main() {
     const code = await launchQwen({
       key: chosen.key, model: chosen.model, prompt: args.prompt,
       mcpConfig, entrypoint, upstream: chosen.endpoint,
-      providerId: chosen.providerId, continueSession, resumeSession,
+      providerId: chosen.providerId, continueSession, resumeSession, catalog,
     })
     if (code !== PROVIDER_SWITCH_EXIT) return code
     if (args.prompt || !process.stdin.isTTY) throw Error('Provider menu requires an interactive terminal.')
     // Older cached engine fallback only. Current /provider switches the live
     // parent proxy and model Config without exiting or exposing API keys.
     resumeSession = undefined // Native picker is used only on the first launch.
+    catalog = undefined // The next provider has its own eligible model list.
     const previousProvider = chosen.providerId
-    chosen = await startupMenu()
+    chosen = await startupMenu({ dialogModel })
     continueSession = previousProvider === chosen.providerId
   }
 }
