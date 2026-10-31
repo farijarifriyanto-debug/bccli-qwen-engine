@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { homedir } from 'node:os'
 import { BCCLI_PROVIDER_COMMAND } from './provider-command.mjs'
 import { BCCLI_PROVIDER_DIALOG } from './provider-dialog.mjs'
+import { BCCLI_MODEL_DIALOG } from './model-dialog.mjs'
 
 const VERSION = '0.26.3'
 const SOURCE_HASHES = Object.freeze({
@@ -32,7 +33,7 @@ const SOURCE_HASHES = Object.freeze({
   'chunks/chunk-B3ZFUGTC.js': 'f3f57aafbaeab56ca58f5d3173751d30e5fef815aeaf8dc9b46e6ea9e85eb528',
   'chunks/chunk-GGVWG4SI.js': '945c7f4e9b3697003c165b7bc5d007c9b87140d1fad7be084d7b253d8d2b476c',
 })
-const BRAND_REVISION = 'bccli-20261031-opentui-provider-fallback-v17'
+const BRAND_REVISION = 'bccli-20261031-model-picker-search-v18'
 // Deliberately not Qwen's blue→purple→rose gradient. BotConnector-facing
 // coding CLI uses a distinct teal→green→amber palette in dark/light themes.
 export const BCCLI_COLORS = Object.freeze(['#00AFA0', '#22C55E', '#EAB308'])
@@ -67,9 +68,9 @@ function replaceOnce(text, oldValue, newValue, label) {
 // Embedded slash commands are part of the upstream renderer bundle. BCCLI's
 // Gateway owns authentication and release management, so those commands must
 // not open arbitrary upstream provider settings or invoke the upstream npm /
-// standalone auto-updater. /model intentionally stays upstream-owned: the
-// interactive picker is fed by the gateway catalog that BCCLI writes into the
-// session's modelProviders (see dialog-models.mjs).
+// standalone auto-updater. /model keeps the upstream command, but its primary
+// picker is BCCLI's searchable dialog (see model-dialog.mjs); the auxiliary
+// pickers stay upstream-owned.
 export function guardUpstreamProviderCommands(text) {
   const replacements = [
     {
@@ -198,6 +199,23 @@ function renameProductLanguage(text) {
   return out
 }
 
+// The upstream Select Model list cannot be filtered and the gateway catalog is
+// long, so the primary picker becomes BCCLI's searchable one. The auxiliary
+// pickers (fast / vision / voice / compaction / image / advisor) keep the
+// upstream implementation, which owns their eligibility and persistence rules;
+// the BCCLI component delegates to it for those modes.
+export function patchModelDialog(text) {
+  const renamed = replaceExactly(text,
+    'function ModelDialog(',
+    'function UpstreamModelDialog(',
+    1,
+    'model picker upstream rename')
+  return replaceOnce(renamed,
+    'function UpstreamModelDialog(',
+    BCCLI_MODEL_DIALOG + '\nfunction UpstreamModelDialog(',
+    'model picker BCCLI search dialog')
+}
+
 export function patchUiChunk(file, text) {
   if (file === 'chunks/chunk-Y6HHV4LC.js') {
     // Keep both context formats available and prioritize the vendor-neutral
@@ -298,6 +316,7 @@ export function patchUiChunk(file, text) {
       throw Error('BCCLI arrow-key provider dialog locator changed upstream.')
     }
     if (start >= 0) result = result.slice(0,start) + BCCLI_PROVIDER_DIALOG + result.slice(end)
+    result = patchModelDialog(result)
     return renameProductLanguage(result)
   }
   if (file === 'chunks/start-opentui-ui-Q34XCEMN.js') {
