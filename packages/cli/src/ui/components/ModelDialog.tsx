@@ -134,15 +134,15 @@ interface ModelDialogProps {
 
 const MAX_MODEL_ITEMS_TO_SHOW = 10;
 // Non-list dialog chrome to reserve when capping visible model rows: outer
-// round border (2) + outer padding (2) + title (1) + gap before the list (1)
-// + highlighted-entry detail panel (divider + up to 4 detail rows, ~6) +
-// footer gap and hint text (2). The list intentionally omits the ▲/▼ scroll
-// indicators other list dialogs enable: they are two always-rendered chrome
-// rows, and in a height-capped dialog those rows are better spent on two
-// more entries — the entry numbering already shows where the visible window
-// sits in the list. Adjust this whenever the surrounding layout changes, and
-// re-verify with an E2E height sweep rather than guessing.
-const MODEL_DIALOG_FIXED_ROWS = 14;
+// round border (2) + outer padding (2) + title (1) + Search row (1) + gap
+// before the list (1) + highlighted-entry detail panel (divider + up to 4
+// detail rows, ~6) + footer gap and hint text (2). The list intentionally
+// omits the ▲/▼ scroll indicators other list dialogs enable: they are two
+// always-rendered chrome rows, and in a height-capped dialog those rows are
+// better spent on two more entries — the entry numbering already shows where
+// the visible window sits in the list. Adjust this whenever the surrounding
+// layout changes, and re-verify with an E2E height sweep rather than guessing.
+const MODEL_DIALOG_FIXED_ROWS = 15;
 const MODEL_OPTION_ROW_HEIGHT = 1;
 const MODEL_OPTION_ROW_HEIGHT_WITH_DESCRIPTION = 2;
 const ADVISOR_OFF_OPTION = '$advisor-off';
@@ -341,6 +341,8 @@ export function ModelDialog({
   // Local error state for displaying errors within the dialog
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [highlightedValue, setHighlightedValue] = useState<string | null>(null);
+  // The Search row above the list; edit keys only reach it while it is shown.
+  const [searchQuery, setSearchQuery] = useState('');
 
   const authType = config?.getAuthType();
 
@@ -466,8 +468,22 @@ export function ModelDialog({
     isVisionModelMode,
   ]);
 
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  // Matches the model label, its id, and the auth type shown in front of every row, so "openai",
+  // "gpt-5" and "qwen3" all narrow the list the way the row text reads on screen.
+  const filteredModelEntries = useMemo(() => {
+    if (!normalizedSearchQuery) return availableModelEntries;
+    return availableModelEntries.filter(
+      ({ authType: t2, model, snapshotId }) =>
+        model.label.toLowerCase().includes(normalizedSearchQuery) ||
+        model.id.toLowerCase().includes(normalizedSearchQuery) ||
+        String(t2).toLowerCase().includes(normalizedSearchQuery) ||
+        (snapshotId ?? '').toLowerCase().includes(normalizedSearchQuery),
+    );
+  }, [availableModelEntries, normalizedSearchQuery]);
+
   const MODEL_OPTIONS = useMemo(() => {
-    const options = availableModelEntries.map(
+    const options = filteredModelEntries.map(
       ({ authType: t2, model, isRuntime, snapshotId }) => {
         const value =
           isRuntime && snapshotId
@@ -527,7 +543,13 @@ export function ModelDialog({
         };
       },
     );
-    return isAdvisorModelMode
+    // The Advisor "Off" row is an action, not a catalog entry: it stays only while the search is
+    // empty or actually names it, so searching for a model never leaves the cursor on "Off".
+    const offMatchesSearch =
+      !normalizedSearchQuery ||
+      t('Off').toLowerCase().includes(normalizedSearchQuery) ||
+      t('Disable Advisor').toLowerCase().includes(normalizedSearchQuery);
+    return isAdvisorModelMode && offMatchesSearch
       ? [
           {
             value: ADVISOR_OFF_OPTION,
@@ -538,7 +560,7 @@ export function ModelDialog({
           ...options,
         ]
       : options;
-  }, [availableModelEntries, isAdvisorModelMode]);
+  }, [filteredModelEntries, isAdvisorModelMode, normalizedSearchQuery]);
   const modelOptionRowHeight = MODEL_OPTIONS.some(
     ({ description }) =>
       typeof description !== 'string' || description.trim().length > 0,
@@ -822,13 +844,54 @@ export function ModelDialog({
     uiState,
   ]);
 
+  // The Search row exists only while the catalog has models at all — not while the
+  // filter happens to match none, or an emptied search could never be edited again.
+  const searchRowVisible = availableModelEntries.length > 0;
+
   useKeypress(
     (key) => {
       if (
         key.name === 'escape' ||
         (key.name === 'left' && isAuxiliaryModelMode)
       ) {
+        // Esc with an active search clears it first: refining without leaving the
+        // dialog is what the Skills panel already does, and a second Esc closes.
+        if (searchQuery) {
+          setSearchQuery('');
+          return;
+        }
         closeWithoutSelection();
+        return;
+      }
+
+      if (!searchRowVisible) return;
+
+      if (key.name === 'backspace' || key.name === 'delete') {
+        if (!searchQuery) return;
+        setSearchQuery((current) => current.slice(0, -1));
+        return;
+      }
+
+      if (key.name === 'up' || key.name === 'down' || key.name === 'return') {
+        return;
+      }
+
+      // j/k scroll the list (vim nav) while the search is empty; once the user is
+      // typing they are ordinary filter characters ("json", "kimi-k3").
+      if ((key.name === 'j' || key.name === 'k') && !searchQuery) return;
+
+      // Digits jump to a row by number while the search is empty (showNumbers); once
+      // a search is active they belong to the query ("gpt-5.6", "qwen3.8").
+      if (!searchQuery && /^[0-9]$/.test(key.sequence)) return;
+
+      if (
+        !key.ctrl &&
+        !key.meta &&
+        key.sequence.length === 1 &&
+        key.sequence >= '!' &&
+        key.sequence <= '~'
+      ) {
+        setSearchQuery((current) => `${current}${key.sequence}`);
       }
     },
     { isActive: true },
@@ -1271,7 +1334,17 @@ export function ModelDialog({
     ],
   );
 
-  const hasModels = MODEL_OPTIONS.length > 0;
+  const hasAnyModels = availableModelEntries.length > 0;
+  const hasQuery = searchQuery.trim().length > 0;
+  // Advisor mode keeps its "Off" row even with an empty catalog, so the warning is
+  // reserved for the modes that would otherwise have nothing to show.
+  const showCatalogWarning = !hasAnyModels && !isAdvisorModelMode;
+  // The Advisor "Off" row is not a model, so it never counts as a match.
+  const matchedModelCount = MODEL_OPTIONS.some(
+    (option) => option.value === ADVISOR_OFF_OPTION,
+  )
+    ? MODEL_OPTIONS.length - 1
+    : MODEL_OPTIONS.length;
 
   return (
     <Box
@@ -1300,9 +1373,17 @@ export function ModelDialog({
             : persistScope === 'user'
               ? t(' (global)')
               : '')}
+        {hasQuery && (
+          <Text color={theme.text.secondary}>
+            {` · ${t('{{matched}} / {{total}} models', {
+              matched: String(matchedModelCount),
+              total: String(availableModelEntries.length),
+            })}`}
+          </Text>
+        )}
       </Text>
 
-      {!hasModels ? (
+      {showCatalogWarning ? (
         <Box marginTop={1} flexDirection="column">
           <Text color={theme.status.warning}>
             {t(
@@ -1321,15 +1402,39 @@ export function ModelDialog({
           </Box>
         </Box>
       ) : (
-        <Box marginTop={1}>
-          <DescriptiveRadioButtonSelect
-            items={MODEL_OPTIONS}
-            onSelect={handleSelect}
-            onHighlight={handleHighlight}
-            initialIndex={initialIndex}
-            showNumbers={true}
-            maxItemsToShow={maxModelItemsToShow}
-          />
+        <Box flexDirection="column">
+          {hasAnyModels && (
+            <Text wrap="truncate">
+              <Text color={hasQuery ? theme.text.accent : theme.text.secondary}>
+                {t('Search:')}{' '}
+              </Text>
+              {searchQuery || (
+                <Text color={theme.text.secondary} dimColor>
+                  {t('type to filter…')}
+                </Text>
+              )}
+            </Text>
+          )}
+          {MODEL_OPTIONS.length > 0 ? (
+            <Box marginTop={1}>
+              <DescriptiveRadioButtonSelect
+                key={normalizedSearchQuery}
+                items={MODEL_OPTIONS}
+                onSelect={handleSelect}
+                onHighlight={handleHighlight}
+                initialIndex={initialIndex}
+                showNumbers={true}
+                disableVimNav={hasQuery}
+                maxItemsToShow={maxModelItemsToShow}
+              />
+            </Box>
+          ) : (
+            <Box marginTop={1}>
+              <Text color={theme.text.secondary} wrap="truncate">
+                {t('No models match the search.')}
+              </Text>
+            </Box>
+          )}
         </Box>
       )}
 
@@ -1386,7 +1491,9 @@ export function ModelDialog({
 
       <Box marginTop={1} flexDirection="column">
         <Text color={theme.text.secondary}>
-          {t('Enter to select, ↑↓ to navigate, Esc to close')}
+          {hasQuery
+            ? t('↑/↓ navigate · backspace edits search · Esc clears search')
+            : t('Enter to select, ↑↓ to navigate, Esc to close')}
         </Text>
       </Box>
     </Box>

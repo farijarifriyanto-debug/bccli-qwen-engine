@@ -394,6 +394,10 @@ export default {
   'type to filter…': 'type to filter…',
   'No skills are currently available.': 'No skills are currently available.',
   'No skills match the search.': 'No skills match the search.',
+  '{{matched}} / {{total}} models': '{{matched}} / {{total}} models',
+  'No models match the search.': 'No models match the search.',
+  '↑/↓ navigate · backspace edits search · Esc clears search':
+    '↑/↓ navigate · backspace edits search · Esc clears search',
   'Locked by settings entries you cannot toggle here:':
     'Locked by settings entries you cannot toggle here:',
   '{{count}} locked not shown': '{{count}} locked not shown',

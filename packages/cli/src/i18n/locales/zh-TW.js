@@ -367,6 +367,10 @@ export default {
   'type to filter…': '輸入以篩選…',
   'No skills are currently available.': '目前沒有可用的技能。',
   'No skills match the search.': '沒有符合搜尋條件的技能。',
+  '{{matched}} / {{total}} models': '{{matched}} / {{total}} 個模型',
+  'No models match the search.': '沒有符合搜尋條件的模型。',
+  '↑/↓ navigate · backspace edits search · Esc clears search':
+    '↑/↓ 導覽 · 倒退 編輯搜尋 · Esc 清除搜尋',
   'Locked by settings entries you cannot toggle here:':
     '被無法在此切換的設定條目鎖定：',
   '{{count}} locked not shown': '{{count}} 個已鎖定技能未顯示',

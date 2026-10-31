@@ -34,6 +34,11 @@ export interface BaseSelectionListProps<
   showNumbers?: boolean;
   showScrollArrows?: boolean;
   maxItemsToShow?: number;
+  /**
+   * Turn off the j/k navigation while an owning dialog reads those keys as text
+   * (its search box), so typing "json" filters instead of moving the cursor.
+   */
+  disableVimNav?: boolean;
   /** Gap (in rows) between each item. */
   itemGap?: number;
   renderItem: (item: TItem, context: RenderItemContext) => React.ReactNode;
@@ -76,6 +81,7 @@ export function BaseSelectionList<
   showNumbers = true,
   showScrollArrows = false,
   maxItemsToShow = 10,
+  disableVimNav = false,
   itemGap = 0,
   renderItem,
 }: BaseSelectionListProps<T, TItem>): React.JSX.Element {
@@ -86,6 +92,7 @@ export function BaseSelectionList<
     onHighlight,
     isFocused,
     showNumbers,
+    disableVimNav,
   });
 
   const [scrollOffset, setScrollOffset] = useState(() =>

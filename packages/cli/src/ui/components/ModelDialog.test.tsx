@@ -484,7 +484,8 @@ describe('<ModelDialog />', () => {
 
     const props = mockedSelect.mock.calls[0][0];
     expect(props.items).toHaveLength(12);
-    expect(props.maxItemsToShow).toBe(6);
+    // 20 rows of terminal minus the dialog chrome, which now includes the Search row.
+    expect(props.maxItemsToShow).toBe(5);
     // The picker deliberately leaves the ▲/▼ scroll indicators off: they are
     // two always-rendered chrome rows better spent on two more entries.
     expect(props.showScrollArrows).toBeUndefined();
@@ -529,7 +530,7 @@ describe('<ModelDialog />', () => {
     );
 
     const props = mockedSelect.mock.calls[0][0];
-    expect(props.maxItemsToShow).toBe(3);
+    expect(props.maxItemsToShow).toBe(2);
   });
 
   it('falls back to the default max item count when no terminal height is given', () => {
@@ -596,7 +597,7 @@ describe('<ModelDialog />', () => {
     );
 
     const initialProps = mockedSelect.mock.calls[0][0];
-    expect(initialProps.maxItemsToShow).toBe(6);
+    expect(initialProps.maxItemsToShow).toBe(5);
 
     await act(async () => {
       await initialProps.onSelect(initialProps.items[0].value);
@@ -2830,5 +2831,144 @@ describe('encodeAuxModelSelector', () => {
   it('passes a bare id (and a malformed runtime key) through unchanged', () => {
     expect(encodeAuxModelSelector('gpt-4o')).toBe('gpt-4o');
     expect(encodeAuxModelSelector('$runtime|openai')).toBe('$runtime|openai');
+  });
+});
+
+describe('<ModelDialog /> search', () => {
+  const searchModels = [
+    {
+      id: 'glm-5.3-flash',
+      label: 'GLM 5.3 Flash',
+      authType: AuthType.USE_OPENAI,
+      baseUrl: 'https://api.example.com/v1',
+    },
+    {
+      id: 'qwen3.8-max',
+      label: 'Qwen 3.8 Max',
+      authType: AuthType.USE_OPENAI,
+      baseUrl: 'https://api.example.com/v1',
+    },
+    {
+      id: 'gpt5-mini',
+      label: 'GPT5 Mini',
+      authType: AuthType.USE_OPENAI,
+      baseUrl: 'https://api.example.com/v1',
+    },
+    {
+      id: 'kimi-json-2',
+      label: 'Kimi JSON 2',
+      authType: AuthType.USE_OPENAI,
+      baseUrl: 'https://api.example.com/v1',
+    },
+  ];
+
+  const renderSearchable = (
+    props: Partial<React.ComponentProps<typeof ModelDialog>> = {},
+  ) =>
+    renderComponent(props, {
+      getAuthType: () => AuthType.USE_OPENAI,
+      getAllConfiguredModels: () => searchModels,
+    } as unknown as Partial<Config>);
+
+  // The dialog registers a single keypress handler per render; `at(-1)` is the
+  // one closed over the state the assertions below are about to observe.
+  const press = (sequence: string, name = sequence) => {
+    const handler = mockedUseKeypress.mock.calls.at(-1)![0];
+    act(() => {
+      handler({
+        name,
+        sequence,
+        ctrl: false,
+        meta: false,
+        shift: false,
+        paste: false,
+      });
+    });
+  };
+
+  const lastSelectProps = () => mockedSelect.mock.calls.at(-1)![0];
+
+  it('renders a Search row above the model list', () => {
+    const { getByText } = renderSearchable();
+    expect(getByText(/Search:/)).toBeDefined();
+    expect(getByText('type to filter…')).toBeDefined();
+    expect(lastSelectProps().items).toHaveLength(searchModels.length);
+    expect(lastSelectProps().disableVimNav).toBe(false);
+  });
+
+  it('narrows the list by label or id and reports how many models match', () => {
+    const { getByText, queryByText } = renderSearchable();
+
+    press('g', 'g');
+    press('l', 'l');
+    press('m', 'm');
+
+    expect(lastSelectProps().items).toHaveLength(1);
+    expect(String(lastSelectProps().items[0].value)).toContain('glm-5.3-flash');
+    expect(getByText(/1 \/ 4 models/)).toBeDefined();
+    expect(lastSelectProps().disableVimNav).toBe(true);
+    // A digit typed after text belongs to the query, not to the number jump.
+    press('3', '3');
+    expect(queryByText('type to filter…')).toBeNull();
+    expect(getByText(/glm3/)).toBeDefined();
+  });
+
+  it('keeps digit keys jumping to a numbered row while the search is empty', () => {
+    const { getByText } = renderSearchable();
+    press('2', '2');
+    // Nothing typed: the placeholder stays and every model is still listed.
+    expect(lastSelectProps().items).toHaveLength(searchModels.length);
+    expect(lastSelectProps().disableVimNav).toBe(false);
+    expect(getByText('type to filter…')).toBeDefined();
+  });
+
+  it('reads j/k as search text instead of vim navigation once typing starts', () => {
+    renderSearchable();
+    press('j', 'j');
+    press('s', 's');
+    press('o', 'o');
+    press('n', 'n');
+    expect(lastSelectProps().items).toHaveLength(1);
+    expect(String(lastSelectProps().items[0].value)).toContain('kimi-json-2');
+    expect(lastSelectProps().disableVimNav).toBe(true);
+  });
+
+  it('backspace edits the query and an empty query reports no match', () => {
+    const { getByText } = renderSearchable();
+    press('z', 'z');
+    press('z', 'z');
+    // No option survives the filter, so the list is replaced by the no-match notice.
+    expect(getByText('No models match the search.')).toBeDefined();
+
+    press('', 'backspace');
+    press('', 'backspace');
+    expect(lastSelectProps().items).toHaveLength(searchModels.length);
+  });
+
+  it('clears the search on the first Escape and closes on the second', () => {
+    const { props, getByText } = renderSearchable();
+    press('q', 'q');
+    press('', 'escape');
+    expect(props.onClose).not.toHaveBeenCalled();
+    expect(getByText('type to filter…')).toBeDefined();
+    expect(lastSelectProps().items).toHaveLength(searchModels.length);
+
+    press('', 'escape');
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the Advisor Off row out of a model search', () => {
+    renderComponent({ isAdvisorModelMode: true }, {
+      getAuthType: () => AuthType.USE_OPENAI,
+      getAdvisorModel: () => searchModels[0].id,
+      getAllConfiguredModels: () => searchModels,
+    } as unknown as Partial<Config>);
+    const valuesBefore = lastSelectProps().items.map(({ value }) => value);
+    expect(valuesBefore).toContain('$advisor-off');
+
+    press('g', 'g');
+    const valuesAfter = lastSelectProps().items.map(({ value }) => value);
+    expect(valuesAfter).not.toContain('$advisor-off');
+    expect(valuesAfter.length).toBeLessThan(valuesBefore.length);
   });
 });

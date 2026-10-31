@@ -141,6 +141,10 @@ export default {
     'Aucune compétence n’est actuellement disponible.',
   'No skills match the search.':
     'Aucune compétence ne correspond à la recherche.',
+  '{{matched}} / {{total}} models': '{{matched}} / {{total}} modèles',
+  'No models match the search.': 'Aucun modèle ne correspond à la recherche.',
+  '↑/↓ navigate · backspace edits search · Esc clears search':
+    '↑/↓ naviguer · Backspace modifie la recherche · Échap efface la recherche',
   'Locked by settings entries you cannot toggle here:':
     'Verrouillées par des entrées de paramètres (impossible de basculer ici) :',
   '{{count}} locked not shown':
