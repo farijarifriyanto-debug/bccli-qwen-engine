@@ -389,7 +389,7 @@ export function patchUiChunk(file, text) {
     if (result.includes('await registerLazy(ToolNames.WEB_FETCH,async()=>')) {
       result = replaceOnce(result,
         'const hasExplicitWebSearchBackend=',
-        'if(process.env.BCCLI_WEB_SEARCH_AVAILABLE==="1"){await registerLazy("web_search",async()=>{const{BccliWebSearchTool}=await import("./bccli-web-search-tool.mjs");return new BccliWebSearchTool()})}const hasExplicitWebSearchBackend=',
+        'if(process.env.BCCLI_WEB_SEARCH_AVAILABLE==="1"&&this.webSearchSettings?.enabled!==false){await registerLazy("web_search",async()=>{const{BccliWebSearchTool}=await import("./bccli-web-search-tool.mjs");return new BccliWebSearchTool()})}const hasExplicitWebSearchBackend=',
         'register provider-neutral BCCLI web search tool')
       result = replaceOnce(result,
         'if(!this.getBareMode()&&!this.isSafeMode()&&this.webSearchSettings?.enabled!==false',
