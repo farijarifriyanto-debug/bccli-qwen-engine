@@ -8,7 +8,7 @@
 - Legacy --bare tool tests are retained as explicit compatibility probes, while the launcher and security tests verify the full default mode.
 
 ## Search / fetch behavior
-- Full upstream mode uses dynamic tool discovery. `web_fetch` exists in the upstream engine; it might not appear in the first model request, and must be discovered through tool_search.
+- Full upstream mode uses dynamic tool discovery. `web_fetch` is discovered via `tool_search`, invoked via `tool_call`, retrieves a real local HTTP 200 fixture and processes the content through the mocked AI side query. End-to-end regression passes on Windows Node.js 22 and Ubuntu WSL Node.js 24; public internet fetching has not been asserted.
 - The upstream `web_search` requires a supported, configured search backend (DashScope), which is **not** automatically supplied by BotConnector. This release does not claim working generic search or an independent Web Search API.
 - No unaudited external search provider or project-controlled credential forwarding has been enabled.
 
